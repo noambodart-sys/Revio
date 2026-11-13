@@ -1,7 +1,6 @@
-# Proposition Phase 1 — arborescence et schéma (à valider)
+# Proposition Phase 1 — arborescence et schéma (validée le 13/11/2026)
 
 Le schéma complet est dans [`prisma/schema.prisma`](../prisma/schema.prisma) (validé par `prisma validate`).
-Aucun code applicatif n'est écrit avant validation.
 
 ## Arborescence proposée
 
@@ -32,9 +31,8 @@ revio/
 │   │   ├── services/          # points, rewards, tiers, wheel, consents, gdpr, customers, devices, kiosk
 │   │   ├── jobs/              # expiration des points, anonymisation après inactivité
 │   │   └── validation/        # schémas Zod des entrées API
-│   ├── offline/               # service worker + file IndexedDB (clés d'idempotence)
-│   ├── components/            # UI partagée (pavé numérique, boutons tactiles…)
-│   └── i18n/fr.ts             # textes de l'interface
+│   ├── lib/                   # client API, file hors-ligne (IndexedDB), session
+│   └── components/            # UI partagée (pavé numérique, roue, fenêtres)
 └── tests/
     ├── unit/                  # calcul des points, niveaux, roue, expiration
     ├── integration/           # API + base réelle, dont tests d'isolation multi-tenant

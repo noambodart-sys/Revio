@@ -1,0 +1,29 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --brand: 37 99 235;
+  --brand-contrast: 255 255 255;
+}
+
+html, body { height: 100%; }
+body {
+  @apply bg-slate-50 text-slate-900 antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Écrans tactiles : pas de sélection de texte accidentelle, pas de zoom au double tap */
+.touch-ui { user-select: none; touch-action: manipulation; overscroll-behavior: none; }
+
+.btn { @apply inline-flex items-center justify-center rounded-xl px-5 py-3 font-semibold transition active:scale-[0.98] disabled:opacity-40 disabled:active:scale-100; }
+.btn-brand { @apply btn bg-brand text-brand-contrast; }
+.btn-dark { @apply btn bg-slate-900 text-white; }
+.btn-ghost { @apply btn bg-white text-slate-800 ring-1 ring-slate-200; }
+.btn-danger { @apply btn bg-red-600 text-white; }
+.input { @apply w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-base outline-none focus:border-brand focus:ring-2 focus:ring-brand/30; }
+.card { @apply rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200; }
+.label { @apply mb-1 block text-sm font-medium text-slate-600; }
+
+@keyframes pop { 0% { transform: scale(0.5); opacity: 0 } 60% { transform: scale(1.15); opacity: 1 } 100% { transform: scale(1) } }
+.animate-pop { animation: pop 0.6s ease-out both; }

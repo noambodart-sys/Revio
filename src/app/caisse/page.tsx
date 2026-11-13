@@ -1,0 +1,419 @@
+"use client";
+import { useCallback, useEffect, useState } from "react";
+import { api, errorMessage, formatDate, formatEuros, NetworkError } from "@/lib/api";
+import { signOut, useSession } from "@/lib/use-session";
+import { enqueuePurchase, flushQueue, listQueued, newIdempotencyKey } from "@/lib/offline-queue";
+import { Keypad } from "@/components/Keypad";
+import { Modal } from "@/components/Modal";
+
+interface Summary {
+  id: string;
+  firstName: string | null;
+  maskedPhone: string | null;
+  balance: number;
+  tier: { name: string; bonusPercent: number } | null;
+  availableRewards: { id: string; name: string; pointsCost: number }[];
+  nextReward: { name: string; missing: number } | null;
+  pinLocked: boolean;
+}
+interface ActiveSession {
+  sessionId: string;
+  status: "AWAITING_AUTH" | "IDENTIFIED";
+  authMethod: "PIN" | "STAFF_VALIDATION" | null;
+  deviceName: string;
+  customer: Summary;
+}
+interface Detail extends Summary {
+  wheelToday: { label: string; isReward: boolean } | null;
+  consents: Record<string, boolean>;
+  history: { id: string; type: string; points: number; purchaseAmountCents: number | null; reason: string | null; occurredAt: string; staff: string | null }[];
+  redemptions: { id: string; reward: string; createdAt: string; canceledAt: string | null }[];
+}
+interface Reward { id: string; name: string; pointsCost: number; stock: number | null }
+
+const TYPE_LABEL: Record<string, string> = {
+  EARN: "Achat", TIER_BONUS: "Bonus niveau", WHEEL_BONUS: "Roue", REDEEM: "Récompense", ADJUSTMENT: "Correction", EXPIRATION: "Expiration", REVERSAL: "Annulation",
+};
+
+export default function CaissePage() {
+  const me = useSession(["OWNER", "STAFF"], "/caisse");
+  const [sessions, setSessions] = useState<ActiveSession[]>([]);
+  const [selected, setSelected] = useState<{ customerId: string; sessionId: string | null } | null>(null);
+  const [detail, setDetail] = useState<Detail | null>(null);
+  const [rewards, setRewards] = useState<Reward[]>([]);
+  const [amount, setAmount] = useState("");
+  const [idemKey, setIdemKey] = useState(newIdempotencyKey);
+  const [search, setSearch] = useState("");
+  const [toast, setToast] = useState<{ kind: "ok" | "err" | "warn"; text: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [queued, setQueued] = useState(0);
+  const [online, setOnline] = useState(true);
+  const [modal, setModal] = useState<null | "adjust" | "erase" | "rectify">(null);
+
+  const flash = (kind: "ok" | "err" | "warn", text: string) => {
+    setToast({ kind, text });
+    setTimeout(() => setToast((t) => (t?.text === text ? null : t)), 5000);
+  };
+
+  // Passages en cours à la tablette
+  useEffect(() => {
+    if (!me) return;
+    const poll = () => api<ActiveSession[]>("/api/v1/pos/sessions").then(setSessions).catch(() => undefined);
+    poll();
+    const t = setInterval(poll, 2000);
+    api<Reward[]>("/api/v1/pos/rewards").then(setRewards).catch(() => undefined);
+    return () => clearInterval(t);
+  }, [me]);
+
+  // File hors-ligne
+  const sync = useCallback(async () => {
+    try {
+      const r = await flushQueue();
+      setQueued(r.remaining);
+      for (const f of r.failed) flash("err", `Achat hors-ligne refusé (${f.item.customerLabel}) : ${f.message}`);
+    } catch {
+      /* IndexedDB indisponible */
+    }
+  }, []);
+  useEffect(() => {
+    if (!me) return;
+    listQueued().then((q) => setQueued(q.length)).catch(() => undefined);
+    const on = () => { setOnline(true); sync(); };
+    const off = () => setOnline(false);
+    setOnline(navigator.onLine);
+    window.addEventListener("online", on);
+    window.addEventListener("offline", off);
+    const t = setInterval(sync, 30_000);
+    sync();
+    return () => { window.removeEventListener("online", on); window.removeEventListener("offline", off); clearInterval(t); };
+  }, [me, sync]);
+
+  const loadDetail = useCallback(async (customerId: string) => {
+    try {
+      setDetail(await api<Detail>(`/api/v1/pos/customers/${customerId}`));
+    } catch (e) {
+      flash("err", errorMessage(e));
+    }
+  }, []);
+
+  useEffect(() => {
+    if (selected) loadDetail(selected.customerId);
+    else setDetail(null);
+  }, [selected, loadDetail]);
+
+  const selectSession = (s: ActiveSession) => {
+    setSelected({ customerId: s.customer.id, sessionId: s.status === "IDENTIFIED" ? s.sessionId : null });
+    setAmount("");
+    setIdemKey(newIdempotencyKey());
+  };
+
+  const act = async (fn: () => Promise<void>) => {
+    setBusy(true);
+    try { await fn(); } catch (e) { flash("err", errorMessage(e)); } finally { setBusy(false); }
+  };
+
+  const validateIdentity = (s: ActiveSession) =>
+    act(async () => {
+      await api(`/api/v1/pos/sessions/${s.sessionId}/validate`, { body: {} });
+      setSelected({ customerId: s.customer.id, sessionId: s.sessionId });
+      flash("ok", "Identité confirmée");
+    });
+
+  const doSearch = () =>
+    act(async () => {
+      const r = await api<{ customer: Summary | null }>(`/api/v1/pos/customers?phone=${encodeURIComponent(search)}`);
+      if (!r.customer) return flash("warn", "Aucun client avec ce numéro. Il peut s'inscrire sur la tablette.");
+      setSelected({ customerId: r.customer.id, sessionId: null });
+      setSearch("");
+    });
+
+  const amountCents = Number(amount || "0");
+  const label = detail ? detail.firstName ?? detail.maskedPhone ?? "client" : "client";
+
+  const submitPurchase = () =>
+    act(async () => {
+      if (!selected) return;
+      const body = { customerId: selected.customerId, amountCents, kioskSessionId: selected.sessionId, idempotencyKey: idemKey, occurredAt: new Date().toISOString() };
+      try {
+        const r = await api<{ earned: number; balance: number; capped: boolean; bonusPoints: number }>("/api/v1/pos/purchases", { body });
+        flash(r.capped ? "warn" : "ok", `+${r.earned} points pour ${label} (solde ${r.balance})${r.bonusPoints ? ` dont ${r.bonusPoints} de bonus` : ""}${r.capped ? " — plafond quotidien atteint" : ""}`);
+        setSelected((s) => (s ? { ...s, sessionId: null } : s));
+        await loadDetail(selected.customerId);
+      } catch (e) {
+        if (e instanceof NetworkError) {
+          await enqueuePurchase({ ...body, customerLabel: label, kioskSessionId: null });
+          setQueued((q) => q + 1);
+          flash("warn", `Hors connexion : achat de ${formatEuros(amountCents)} enregistré, il sera envoyé automatiquement.`);
+        } else throw e;
+      }
+      setAmount("");
+      setIdemKey(newIdempotencyKey());
+    });
+
+  const redeem = (r: { id: string; name: string }) =>
+    act(async () => {
+      if (!selected || !confirm(`Remettre « ${r.name} » à ${label} ?`)) return;
+      const res = await api<{ balance: number }>("/api/v1/pos/redemptions", { body: { customerId: selected.customerId, rewardId: r.id } });
+      flash("ok", `${r.name} remis. Nouveau solde : ${res.balance} points`);
+      await loadDetail(selected.customerId);
+    });
+
+  const optOut = () =>
+    act(async () => {
+      if (!selected || !confirm("Désinscrire ce client des SMS et e-mails marketing ?")) return;
+      await api(`/api/v1/gdpr/customers/${selected.customerId}/marketing-opt-out`, { body: {} });
+      flash("ok", "Client désinscrit du marketing");
+      await loadDetail(selected.customerId);
+    });
+
+  if (!me) return <main className="p-6 text-slate-500">Chargement…</main>;
+  const isOwner = me.role === "OWNER";
+
+  return (
+    <main className="touch-ui min-h-screen">
+      <header className="flex flex-wrap items-center justify-between gap-3 bg-slate-900 px-5 py-3 text-white">
+        <div className="text-lg font-bold">{me.merchantName} — Caisse</div>
+        <div className="flex items-center gap-4 text-sm">
+          {!online && <span className="rounded-full bg-amber-400 px-3 py-1 font-semibold text-slate-900">Hors connexion</span>}
+          {queued > 0 && <button className="rounded-full bg-amber-200 px-3 py-1 font-semibold text-slate-900" onClick={sync}>{queued} achat(s) à synchroniser</button>}
+          <span>{me.displayName}</span>
+          <button className="underline" onClick={signOut}>Déconnexion</button>
+        </div>
+      </header>
+
+      {toast && (
+        <div className={`fixed left-1/2 top-16 z-40 w-[90%] max-w-xl -translate-x-1/2 rounded-xl px-5 py-4 text-lg font-medium shadow-lg ${toast.kind === "ok" ? "bg-emerald-600 text-white" : toast.kind === "warn" ? "bg-amber-300 text-slate-900" : "bg-red-600 text-white"}`}>
+          {toast.text}
+        </div>
+      )}
+
+      <div className="grid gap-5 p-5 lg:grid-cols-[360px_1fr]">
+        {/* Colonne gauche : tablette + recherche */}
+        <section className="space-y-4">
+          <div className="card space-y-3">
+            <h2 className="text-lg font-semibold">À la tablette</h2>
+            {sessions.length === 0 && <p className="text-slate-500">Aucun client en cours. Invitez le client à taper son numéro.</p>}
+            {sessions.map((s) => (
+              <div key={s.sessionId} className={`rounded-xl p-3 ring-2 ${selected?.customerId === s.customer.id ? "ring-brand" : "ring-slate-100"}`}>
+                <button className="w-full text-left" onClick={() => selectSession(s)}>
+                  <div className="text-lg font-semibold">{s.customer.firstName ?? "Client"} <span className="font-normal text-slate-500">{s.customer.maskedPhone}</span></div>
+                  <div className="text-slate-600">{s.customer.balance} points{s.customer.tier ? ` · ${s.customer.tier.name}` : ""} · {s.deviceName}</div>
+                </button>
+                {s.status === "AWAITING_AUTH" && s.authMethod === "STAFF_VALIDATION" && (
+                  <button className="btn-brand mt-2 w-full" disabled={busy} onClick={() => validateIdentity(s)}>
+                    Confirmer l&apos;identité{s.customer.pinLocked ? " (PIN bloqué)" : ""}
+                  </button>
+                )}
+                {s.status === "AWAITING_AUTH" && s.authMethod !== "STAFF_VALIDATION" && <div className="mt-2 text-sm text-slate-500">Saisie du code en cours…</div>}
+                {s.status === "IDENTIFIED" && <div className="mt-2 text-sm font-medium text-emerald-700">Identifié ✓</div>}
+              </div>
+            ))}
+          </div>
+          <div className="card space-y-3">
+            <h2 className="text-lg font-semibold">Rechercher un client</h2>
+            <form onSubmit={(e) => { e.preventDefault(); doSearch(); }} className="flex gap-2">
+              <input className="input" inputMode="tel" placeholder="0470 12 34 56" value={search} onChange={(e) => setSearch(e.target.value)} />
+              <button className="btn-dark" disabled={busy || search.length < 9}>OK</button>
+            </form>
+          </div>
+        </section>
+
+        {/* Fiche client */}
+        <section>
+          {!detail ? (
+            <div className="card flex min-h-[300px] items-center justify-center text-lg text-slate-500">Sélectionnez un client</div>
+          ) : (
+            <div className="grid gap-5 xl:grid-cols-2">
+              <div className="card space-y-4">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <div className="text-2xl font-bold">{detail.firstName ?? "Client"}</div>
+                    <div className="text-slate-500">{detail.maskedPhone}</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-4xl font-black">{detail.balance}</div>
+                    <div className="text-slate-500">points{detail.tier ? ` · ${detail.tier.name}` : ""}</div>
+                  </div>
+                </div>
+                {detail.wheelToday?.isReward && (
+                  <div className="rounded-lg bg-amber-100 px-3 py-2 font-medium text-amber-900">🎡 Lot gagné à la roue aujourd&apos;hui : {detail.wheelToday.label} — à remettre au client</div>
+                )}
+                {selected?.sessionId && <div className="rounded-lg bg-emerald-50 px-3 py-2 text-emerald-800">Le résultat s&apos;affichera sur la tablette.</div>}
+                <div>
+                  <div className="label">Montant de l&apos;achat</div>
+                  <div className="mb-3 rounded-xl bg-slate-100 py-3 text-center text-4xl font-bold">{formatEuros(amountCents)}</div>
+                  <Keypad
+                    onDigit={(d) => setAmount((a) => (a.length < 7 ? (a + d).replace(/^0+/, "") : a))}
+                    onDelete={() => setAmount((a) => a.slice(0, -1))}
+                    onSubmit={submitPurchase}
+                    submitLabel="Valider"
+                    submitDisabled={busy}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-5">
+                <div className="card space-y-3">
+                  <h3 className="text-lg font-semibold">Récompenses</h3>
+                  {rewards.length === 0 && <p className="text-slate-500">Aucune récompense configurée.</p>}
+                  {rewards.map((r) => {
+                    const ok = detail.balance >= r.pointsCost && (r.stock === null || r.stock > 0);
+                    return (
+                      <div key={r.id} className="flex items-center justify-between gap-3">
+                        <div>
+                          <div className="font-medium">{r.name}</div>
+                          <div className="text-sm text-slate-500">{r.pointsCost} points{r.stock !== null ? ` · stock ${r.stock}` : ""}</div>
+                        </div>
+                        <button className="btn-brand" disabled={!ok || busy} onClick={() => redeem(r)}>Remettre</button>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="card space-y-3">
+                  <div className="flex flex-wrap gap-2">
+                    <button className="btn-ghost" onClick={() => setModal("adjust")}>Corriger les points</button>
+                    {(detail.consents.MARKETING_SMS || detail.consents.MARKETING_EMAIL) && <button className="btn-ghost" onClick={optOut}>Désinscrire du marketing</button>}
+                  </div>
+                  {isOwner && (
+                    <div className="flex flex-wrap gap-2 border-t border-slate-100 pt-3">
+                      <span className="w-full text-sm font-medium text-slate-500">Droits RGPD du client</span>
+                      <a className="btn-ghost" href={`/api/v1/gdpr/customers/${detail.id}/export`}>Exporter ses données</a>
+                      <button className="btn-ghost" onClick={() => setModal("rectify")}>Rectifier</button>
+                      <button className="btn-ghost text-red-700" onClick={() => setModal("erase")}>Supprimer</button>
+                    </div>
+                  )}
+                  <div className="text-sm text-slate-500">
+                    Marketing : SMS {detail.consents.MARKETING_SMS ? "oui" : "non"} · e-mail {detail.consents.MARKETING_EMAIL ? "oui" : "non"}
+                  </div>
+                </div>
+
+                <div className="card">
+                  <h3 className="mb-3 text-lg font-semibold">Historique</h3>
+                  <ul className="divide-y divide-slate-100">
+                    {detail.history.map((h) => (
+                      <li key={h.id} className="flex justify-between gap-3 py-2 text-sm">
+                        <div>
+                          <div className="font-medium">{TYPE_LABEL[h.type] ?? h.type}{h.purchaseAmountCents != null ? ` · ${formatEuros(h.purchaseAmountCents)}` : ""}</div>
+                          <div className="text-slate-500">{formatDate(h.occurredAt)}{h.staff ? ` · ${h.staff}` : ""}{h.reason ? ` · ${h.reason}` : ""}</div>
+                        </div>
+                        <div className={`font-semibold ${h.points < 0 ? "text-red-600" : "text-emerald-700"}`}>{h.points > 0 ? "+" : ""}{h.points}</div>
+                      </li>
+                    ))}
+                    {detail.history.length === 0 && <li className="py-2 text-slate-500">Aucun mouvement</li>}
+                  </ul>
+                </div>
+              </div>
+            </div>
+          )}
+        </section>
+      </div>
+
+      {modal === "adjust" && detail && (
+        <AdjustModal
+          onClose={() => setModal(null)}
+          onSubmit={(points, reason) =>
+            act(async () => {
+              const r = await api<{ balance: number; alert: boolean }>(`/api/v1/pos/customers/${detail.id}/adjustments`, { body: { points, reason } });
+              setModal(null);
+              flash(r.alert ? "warn" : "ok", `Correction enregistrée. Solde : ${r.balance}${r.alert ? " — nombre de corrections inhabituel, signalé au propriétaire" : ""}`);
+              await loadDetail(detail.id);
+            })
+          }
+        />
+      )}
+      {modal === "erase" && detail && (
+        <EraseModal
+          onClose={() => setModal(null)}
+          onSubmit={(reason) =>
+            act(async () => {
+              await api(`/api/v1/gdpr/customers/${detail.id}/erase`, { body: { reason } });
+              setModal(null);
+              setSelected(null);
+              flash("ok", "Client supprimé définitivement");
+            })
+          }
+        />
+      )}
+      {modal === "rectify" && detail && (
+        <RectifyModal
+          initialFirstName={detail.firstName ?? ""}
+          onClose={() => setModal(null)}
+          onSubmit={(firstName, phone) =>
+            act(async () => {
+              await api(`/api/v1/pos/customers/${detail.id}`, { method: "PATCH", body: { firstName: firstName || null, ...(phone ? { phone } : {}) } });
+              setModal(null);
+              flash("ok", "Données rectifiées");
+              await loadDetail(detail.id);
+            })
+          }
+        />
+      )}
+    </main>
+  );
+}
+
+function AdjustModal({ onClose, onSubmit }: { onClose: () => void; onSubmit: (points: number, reason: string) => void }) {
+  const [points, setPoints] = useState("");
+  const [reason, setReason] = useState("");
+  const n = Number(points);
+  return (
+    <Modal title="Corriger les points" onClose={onClose}>
+      <div className="space-y-4">
+        <div>
+          <label className="label">Points (négatif pour retirer)</label>
+          <input className="input" inputMode="numeric" value={points} onChange={(e) => setPoints(e.target.value.replace(/[^\d-]/g, ""))} placeholder="ex. 20 ou -20" />
+        </div>
+        <div>
+          <label className="label">Motif (obligatoire)</label>
+          <input className="input" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="ex. Achat oublié hier" maxLength={200} />
+        </div>
+        <p className="text-sm text-slate-500">Chaque correction est enregistrée avec votre nom dans le journal d&apos;audit.</p>
+        <button className="btn-dark w-full" disabled={!Number.isInteger(n) || n === 0 || reason.trim().length < 3} onClick={() => onSubmit(n, reason)}>Enregistrer</button>
+      </div>
+    </Modal>
+  );
+}
+
+function EraseModal({ onClose, onSubmit }: { onClose: () => void; onSubmit: (reason: string) => void }) {
+  const [reason, setReason] = useState("Demande du client");
+  const [confirmText, setConfirmText] = useState("");
+  return (
+    <Modal title="Supprimer définitivement ce client" onClose={onClose}>
+      <div className="space-y-4">
+        <p>Le numéro, le prénom et le code du client seront effacés. Ses points seront perdus. <strong>Cette action est irréversible.</strong></p>
+        <p className="text-sm text-slate-500">Pensez à exporter ses données d&apos;abord s&apos;il les a demandées.</p>
+        <div>
+          <label className="label">Motif</label>
+          <input className="input" value={reason} onChange={(e) => setReason(e.target.value)} />
+        </div>
+        <div>
+          <label className="label">Tapez SUPPRIMER pour confirmer</label>
+          <input className="input" value={confirmText} onChange={(e) => setConfirmText(e.target.value)} />
+        </div>
+        <button className="btn-danger w-full" disabled={confirmText !== "SUPPRIMER" || reason.trim().length < 3} onClick={() => onSubmit(reason)}>Supprimer définitivement</button>
+      </div>
+    </Modal>
+  );
+}
+
+function RectifyModal({ initialFirstName, onClose, onSubmit }: { initialFirstName: string; onClose: () => void; onSubmit: (firstName: string, phone: string) => void }) {
+  const [firstName, setFirstName] = useState(initialFirstName);
+  const [phone, setPhone] = useState("");
+  return (
+    <Modal title="Rectifier les données" onClose={onClose}>
+      <div className="space-y-4">
+        <div>
+          <label className="label">Prénom</label>
+          <input className="input" value={firstName} onChange={(e) => setFirstName(e.target.value)} maxLength={40} />
+        </div>
+        <div>
+          <label className="label">Nouveau numéro (laisser vide pour ne pas changer)</label>
+          <input className="input" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} />
+        </div>
+        <button className="btn-dark w-full" onClick={() => onSubmit(firstName, phone)}>Enregistrer</button>
+      </div>
+    </Modal>
+  );
+}
+

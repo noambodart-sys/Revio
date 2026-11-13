@@ -60,10 +60,10 @@ async function main() {
     );
     await db.wheelPrize.createMany({
       data: [
-        { label: "Perdu", type: "NOTHING", weight: 50 },
-        { label: "+5 points", type: "POINTS", points: 5, weight: 30 },
-        { label: "+20 points", type: "POINTS", points: 20, weight: 15 },
-        { label: "Croissant", type: "REWARD", rewardId: rewards[0].id, weight: 5 },
+        { label: "Perdu", type: "NOTHING" as const, weight: 50 },
+        { label: "+5 points", type: "POINTS" as const, points: 5, weight: 30 },
+        { label: "+20 points", type: "POINTS" as const, points: 20, weight: 15 },
+        { label: "Croissant", type: "REWARD" as const, rewardId: rewards[0].id, weight: 5 },
       ].map((p, i) => ({ ...p, sortOrder: i, merchantId: merchant!.id })),
     });
     console.log(`\nCommerce de démo : ${merchant.name}`);
