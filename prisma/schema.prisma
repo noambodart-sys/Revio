@@ -1,6 +1,5 @@
 // =============================================================================
 // Revio (nom provisoire) — schéma Prisma, Phase 1 (MVP)
-// PROPOSITION — en attente de validation.
 //
 // Règles générales :
 // - Toutes les tables métier portent merchant_id et sont protégées par
@@ -13,14 +12,15 @@
 // =============================================================================
 
 generator client {
-  provider        = "prisma-client-js"
-  previewFeatures = ["postgresqlExtensions"]
+  provider = "prisma-client-js"
 }
 
+// url       : rôle applicatif soumis à la RLS (revio_app)
+// directUrl : propriétaire du schéma, utilisé uniquement par les migrations
 datasource db {
-  provider   = "postgresql"
-  url        = env("DATABASE_URL")
-  extensions = [pgcrypto]
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("MIGRATION_DATABASE_URL")
 }
 
 // ----------------------------------------------------------------------------

@@ -1,0 +1,46 @@
+{
+  "name": "revio",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "db:setup": "bash scripts/db-setup.sh",
+    "db:migrate": "prisma migrate deploy",
+    "db:seed": "tsx prisma/seed.ts",
+    "db:reset": "bash scripts/db-setup.sh --reset && prisma migrate deploy && tsx prisma/seed.ts",
+    "jobs:run": "tsx scripts/run-jobs.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "db:test:setup": "bash scripts/db-setup.sh --reset revio_test && MIGRATION_DATABASE_URL=$(echo $MIGRATION_DATABASE_URL | sed 's#/revio$#/revio_test#') prisma migrate deploy"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
+  "dependencies": {
+    "@node-rs/argon2": "^2.0.2",
+    "@prisma/client": "^5.22.0",
+    "libphonenumber-js": "^1.11.17",
+    "next": "^15.1.6",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.7",
+    "@types/react": "^19.0.7",
+    "@types/react-dom": "^19.0.3",
+    "autoprefixer": "^10.4.20",
+    "dotenv": "^16.4.7",
+    "postcss": "^8.5.1",
+    "prisma": "^5.22.0",
+    "tailwindcss": "^3.4.17",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3",
+    "vitest": "^2.1.8"
+  }
+}
