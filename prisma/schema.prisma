@@ -1,0 +1,630 @@
+// =============================================================================
+// Revio (nom provisoire) — schéma Prisma, Phase 1 (MVP)
+// PROPOSITION — en attente de validation.
+//
+// Règles générales :
+// - Toutes les tables métier portent merchant_id et sont protégées par
+//   Row Level Security (policies écrites en SQL dans la migration initiale).
+// - Les points sont une table de mouvements (point_transactions) ; le solde
+//   est toujours SUM(points), jamais un champ stocké.
+// - Aucune donnée en clair sensible : téléphone chiffré (AES-256-GCM) +
+//   empreinte HMAC pour la recherche ; PIN, mots de passe, codes et jetons hachés.
+// - Montants en centimes (Int), jamais en flottant.
+// =============================================================================
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [pgcrypto]
+}
+
+// ----------------------------------------------------------------------------
+// Enums
+// ----------------------------------------------------------------------------
+
+enum Plan {
+  ESSENTIEL
+  PRO
+}
+
+enum SubscriptionStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELED
+}
+
+enum UserRole {
+  OWNER // propriétaire du commerce
+  STAFF // vendeur
+  REVIO_ADMIN // équipe Revio (merchant_id null, 2FA obligatoire)
+}
+
+/// Moyens d'identification. V1 = PHONE ; les autres sont prévus pour V2/V3
+/// sans changer la structure.
+enum IdentifierType {
+  PHONE
+  WALLET_PASS
+  NFC_TAG
+  PAYMENT_CARD
+}
+
+enum IdentificationMode {
+  PIN // le client tape son PIN à 4 chiffres
+  STAFF_VALIDATION // le vendeur confirme l'identité sur la caisse
+}
+
+enum EarnMode {
+  PER_EURO
+  PER_VISIT
+}
+
+enum ConsentType {
+  TERMS // CGU du programme (base légale : contrat)
+  MARKETING_SMS
+  MARKETING_EMAIL
+  AGE_16_PLUS // déclaration « j'ai 16 ans ou plus »
+}
+
+enum LegalDocumentType {
+  TERMS
+  PRIVACY_POLICY
+  MARKETING_SMS
+  MARKETING_EMAIL
+}
+
+enum PointTransactionType {
+  EARN // gain sur achat
+  TIER_BONUS // bonus de niveau (ligne séparée pour l'audit)
+  WHEEL_BONUS // gain via la roue
+  REDEEM // dépense pour une récompense (négatif)
+  ADJUSTMENT // correction manuelle (motif obligatoire)
+  EXPIRATION // expiration après inactivité (négatif)
+  REVERSAL // annulation d'un mouvement précédent
+}
+
+enum KioskSessionStatus {
+  AWAITING_AUTH // numéro saisi, PIN / validation vendeur en attente
+  IDENTIFIED // client identifié, visible sur la caisse
+  COMPLETED // achat validé, résultat affiché
+  EXPIRED
+  CANCELED
+}
+
+enum WheelPrizeType {
+  NOTHING
+  POINTS
+  REWARD
+}
+
+enum DataRequestType {
+  ACCESS
+  PORTABILITY
+  RECTIFICATION
+  ERASURE
+  MARKETING_OPT_OUT
+}
+
+enum DataRequestStatus {
+  OPEN
+  IN_PROGRESS
+  CLOSED
+  REJECTED
+}
+
+enum ActorType {
+  USER
+  DEVICE
+  SYSTEM
+}
+
+// ----------------------------------------------------------------------------
+// Commerçants, comptes, appareils
+// ----------------------------------------------------------------------------
+
+model Merchant {
+  id        String @id @default(uuid()) @db.Uuid
+  slug      String @unique
+  name      String
+  vatNumber String? @map("vat_number")
+
+  addressLine1 String? @map("address_line1")
+  addressLine2 String? @map("address_line2")
+  postalCode   String? @map("postal_code")
+  city         String?
+  country      String  @default("BE") @db.Char(2)
+
+  // Personnalisation de la tablette
+  logoUrl        String? @map("logo_url")
+  primaryColor   String? @map("primary_color")
+  secondaryColor String? @map("secondary_color")
+
+  // Abonnement
+  plan                 Plan               @default(ESSENTIEL)
+  subscriptionStatus   SubscriptionStatus @default(TRIALING) @map("subscription_status")
+  trialEndsAt          DateTime?          @map("trial_ends_at")
+  stripeCustomerId     String?            @unique @map("stripe_customer_id")
+  stripeSubscriptionId String?            @unique @map("stripe_subscription_id")
+  suspendedAt          DateTime?          @map("suspended_at")
+
+  // networkId (V2) : ajouté avec la table networks.
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  users               User[]
+  devices             Device[]
+  customers           Customer[]
+  customerIdentifiers CustomerIdentifier[]
+  phoneVerifications  PhoneVerification[]
+  legalDocuments      LegalDocument[]
+  consents            Consent[]
+  rules               Rules?
+  tierLevels          TierLevel[]
+  rewards             Reward[]
+  wheelPrizes         WheelPrize[]
+  wheelSpins          WheelSpin[]
+  pointTransactions   PointTransaction[]
+  redemptions         Redemption[]
+  kioskSessions       KioskSession[]
+  auditLogs           AuditLog[]
+  dataRequests        DataRequest[]
+
+  @@map("merchants")
+}
+
+model User {
+  id         String    @id @default(uuid()) @db.Uuid
+  merchantId String?   @map("merchant_id") @db.Uuid // null pour REVIO_ADMIN
+  merchant   Merchant? @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+
+  email        String   @unique // stocké en minuscules
+  displayName  String   @map("display_name")
+  role         UserRole
+  passwordHash String   @map("password_hash") // Argon2id
+
+  totpSecretEnc    Bytes?    @map("totp_secret_enc") // 2FA, chiffré
+  failedLoginCount Int       @default(0) @map("failed_login_count")
+  lockedUntil      DateTime? @map("locked_until")
+  lastLoginAt      DateTime? @map("last_login_at")
+  disabledAt       DateTime? @map("disabled_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  sessions            UserSession[]
+  pointTransactions   PointTransaction[]
+  redemptions         Redemption[]
+  handledDataRequests DataRequest[]
+  consents            Consent[]
+  auditLogs           AuditLog[]
+
+  @@index([merchantId])
+  @@map("users")
+}
+
+model UserSession {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique @map("token_hash") // SHA-256 du jeton de session
+  expiresAt DateTime  @map("expires_at")
+  revokedAt DateTime? @map("revoked_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@map("user_sessions")
+}
+
+/// Tablette appairée à un magasin.
+model Device {
+  id         String   @id @default(uuid()) @db.Uuid
+  merchantId String   @map("merchant_id") @db.Uuid
+  merchant   Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  name       String // ex. « Tablette comptoir »
+
+  pairingCodeHash      String?   @map("pairing_code_hash") // code à usage unique
+  pairingCodeExpiresAt DateTime? @map("pairing_code_expires_at")
+  tokenHash            String?   @unique @map("token_hash") // jeton propre à l'appareil
+  pairedAt             DateTime? @map("paired_at")
+  lastSeenAt           DateTime? @map("last_seen_at")
+  revokedAt            DateTime? @map("revoked_at") // révocation à distance
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  kioskSessions     KioskSession[]
+  pointTransactions PointTransaction[]
+  consents          Consent[]
+  auditLogs         AuditLog[]
+
+  @@index([merchantId])
+  @@map("devices")
+}
+
+// ----------------------------------------------------------------------------
+// Clients et identification
+// ----------------------------------------------------------------------------
+
+model Customer {
+  id         String   @id @default(uuid()) @db.Uuid
+  merchantId String   @map("merchant_id") @db.Uuid
+  merchant   Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+
+  firstName String? @map("first_name") // facultatif (minimisation)
+
+  pinHash           String?   @map("pin_hash") // Argon2id
+  pinFailedAttempts Int       @default(0) @map("pin_failed_attempts")
+  pinLockedUntil    DateTime? @map("pin_locked_until") // blocage après 5 essais
+  phoneVerifiedAt   DateTime? @map("phone_verified_at")
+
+  // Cache du niveau, recalculé à chaque gain depuis point_transactions.
+  currentTierId String?    @map("current_tier_id") @db.Uuid
+  currentTier   TierLevel? @relation(fields: [currentTierId], references: [id], onDelete: SetNull)
+
+  enrolledAt   DateTime  @default(now()) @map("enrolled_at")
+  lastVisitAt  DateTime? @map("last_visit_at")
+  anonymizedAt DateTime? @map("anonymized_at") // suppression / conservation dépassée
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  identifiers       CustomerIdentifier[]
+  consents          Consent[]
+  pointTransactions PointTransaction[]
+  redemptions       Redemption[]
+  wheelSpins        WheelSpin[]
+  kioskSessions     KioskSession[]
+  dataRequests      DataRequest[]
+
+  @@index([merchantId, lastVisitAt])
+  @@map("customers")
+}
+
+/// Un moyen d'identification d'un client (téléphone en V1, Wallet/NFC plus tard).
+/// La valeur n'est jamais en clair : chiffrée pour l'affichage/export,
+/// empreinte HMAC pour la recherche.
+model CustomerIdentifier {
+  id         String   @id @default(uuid()) @db.Uuid
+  merchantId String   @map("merchant_id") @db.Uuid
+  merchant   Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  customerId String   @map("customer_id") @db.Uuid
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  type        IdentifierType
+  lookupHash  String         @map("lookup_hash") // HMAC-SHA256(valeur normalisée E.164)
+  valueEnc    Bytes          @map("value_enc") // AES-256-GCM (iv + tag + texte chiffré)
+  displayHint String         @map("display_hint") // ex. « 12 » → +32 4•• •• •• 12
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  revokedAt DateTime? @map("revoked_at")
+
+  @@unique([merchantId, type, lookupHash])
+  @@index([customerId])
+  @@map("customer_identifiers")
+}
+
+/// Code SMS de vérification du numéro à l'inscription.
+model PhoneVerification {
+  id         String   @id @default(uuid()) @db.Uuid
+  merchantId String   @map("merchant_id") @db.Uuid
+  merchant   Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+
+  lookupHash String    @map("lookup_hash")
+  codeHash   String    @map("code_hash")
+  attempts   Int       @default(0)
+  expiresAt  DateTime  @map("expires_at")
+  consumedAt DateTime? @map("consumed_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  @@index([merchantId, lookupHash, createdAt])
+  @@map("phone_verifications")
+}
+
+// ----------------------------------------------------------------------------
+// Consentements (versionnés, append-only)
+// ----------------------------------------------------------------------------
+
+/// Textes juridiques versionnés. merchant_id null = modèle Revio par défaut.
+model LegalDocument {
+  id         String    @id @default(uuid()) @db.Uuid
+  merchantId String?   @map("merchant_id") @db.Uuid
+  merchant   Merchant? @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+
+  type        LegalDocumentType
+  version     String // ex. « 2026-11-13 »
+  content     String // Markdown
+  contentHash String            @map("content_hash") // SHA-256, preuve du texte accepté
+  publishedAt DateTime          @default(now()) @map("published_at")
+
+  consents Consent[]
+
+  @@unique([merchantId, type, version])
+  @@map("legal_documents")
+}
+
+/// Chaque ligne = un choix du client à un instant donné (jamais modifiée).
+/// L'état courant d'un consentement = la ligne la plus récente par type.
+model Consent {
+  id         String   @id @default(uuid()) @db.Uuid
+  merchantId String   @map("merchant_id") @db.Uuid
+  merchant   Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  customerId String   @map("customer_id") @db.Uuid
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  type            ConsentType
+  granted         Boolean
+  legalDocumentId String?        @map("legal_document_id") @db.Uuid
+  legalDocument   LegalDocument? @relation(fields: [legalDocumentId], references: [id])
+  textVersion     String         @map("text_version")
+
+  // Origine : tablette, caisse (vendeur) ou back-office
+  deviceId String? @map("device_id") @db.Uuid
+  device   Device? @relation(fields: [deviceId], references: [id], onDelete: SetNull)
+  userId   String? @map("user_id") @db.Uuid
+  user     User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([merchantId, customerId, type, createdAt])
+  @@map("consents")
+}
+
+// ----------------------------------------------------------------------------
+// Règles du commerçant (aucune valeur en dur dans le code)
+// ----------------------------------------------------------------------------
+
+model Rules {
+  merchantId String   @id @map("merchant_id") @db.Uuid
+  merchant   Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+
+  // Gain
+  earnMode         EarnMode @default(PER_EURO) @map("earn_mode")
+  pointsPerEuro    Decimal  @default(1) @map("points_per_euro") @db.Decimal(8, 2) // arrondi à l'inférieur
+  pointsPerVisit   Int      @default(10) @map("points_per_visit")
+  minPurchaseCents Int      @default(0) @map("min_purchase_cents")
+
+  // Identification
+  identificationMode IdentificationMode @default(PIN) @map("identification_mode")
+  pinMaxAttempts     Int                @default(5) @map("pin_max_attempts")
+
+  // Expiration et conservation
+  pointsExpiryMonths        Int @default(12) @map("points_expiry_months") // sans visite
+  expiryReminderDays        Int @default(30) @map("expiry_reminder_days") // si consentement
+  inactivityRetentionMonths Int @default(24) @map("inactivity_retention_months") // plafond vérifié en SQL
+
+  // Niveaux (seuils dans tier_levels)
+  tiersEnabled     Boolean @default(true) @map("tiers_enabled")
+  tierWindowMonths Int     @default(12) @map("tier_window_months")
+
+  // Roue (lots dans wheel_prizes) — une roue par jour et par client
+  wheelEnabled Boolean @default(false) @map("wheel_enabled")
+
+  // Anti-fraude
+  dailyPointsCap            Int? @default(500) @map("daily_points_cap") // null = pas de plafond
+  adjustmentAlertDailyCount Int  @default(5) @map("adjustment_alert_daily_count")
+
+  // Tablette
+  kioskResetSeconds Int @default(10) @map("kiosk_reset_seconds")
+
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  updatedById String?  @map("updated_by_id") @db.Uuid
+
+  @@map("rules")
+}
+
+/// Niveaux Bronze / Argent / Or (noms et seuils réglables).
+model TierLevel {
+  id           String   @id @default(uuid()) @db.Uuid
+  merchantId   String   @map("merchant_id") @db.Uuid
+  merchant     Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  name         String
+  rank         Int // 0 = niveau d'entrée
+  minPoints    Int      @map("min_points") // points gagnés sur la fenêtre glissante
+  bonusPercent Int      @default(0) @map("bonus_percent") // ex. 10 = +10 %
+
+  customers Customer[]
+
+  @@unique([merchantId, rank])
+  @@map("tier_levels")
+}
+
+// ----------------------------------------------------------------------------
+// Récompenses et roue
+// ----------------------------------------------------------------------------
+
+model Reward {
+  id          String   @id @default(uuid()) @db.Uuid
+  merchantId  String   @map("merchant_id") @db.Uuid
+  merchant    Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  pointsCost  Int      @map("points_cost")
+  stock       Int? // null = illimité
+  active      Boolean  @default(true)
+  sortOrder   Int      @default(0) @map("sort_order")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  redemptions Redemption[]
+  wheelPrizes WheelPrize[]
+
+  @@index([merchantId, active])
+  @@map("rewards")
+}
+
+model Redemption {
+  id                 String           @id @default(uuid()) @db.Uuid
+  merchantId         String           @map("merchant_id") @db.Uuid
+  merchant           Merchant         @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  customerId         String           @map("customer_id") @db.Uuid
+  customer           Customer         @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  rewardId           String           @map("reward_id") @db.Uuid
+  reward             Reward           @relation(fields: [rewardId], references: [id])
+  staffUserId        String?          @map("staff_user_id") @db.Uuid
+  staffUser          User?            @relation(fields: [staffUserId], references: [id], onDelete: SetNull)
+  pointTransactionId String           @unique @map("point_transaction_id") @db.Uuid
+  pointTransaction   PointTransaction @relation(fields: [pointTransactionId], references: [id])
+
+  createdAt  DateTime  @default(now()) @map("created_at")
+  canceledAt DateTime? @map("canceled_at")
+
+  @@index([merchantId, createdAt])
+  @@map("redemptions")
+}
+
+model WheelPrize {
+  id         String         @id @default(uuid()) @db.Uuid
+  merchantId String         @map("merchant_id") @db.Uuid
+  merchant   Merchant       @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  label      String
+  type       WheelPrizeType
+  points     Int? // si type = POINTS
+  rewardId   String?        @map("reward_id") @db.Uuid // si type = REWARD
+  reward     Reward?        @relation(fields: [rewardId], references: [id], onDelete: SetNull)
+  weight     Int // poids relatif ; probabilité = weight / somme des poids actifs
+  active     Boolean        @default(true)
+  sortOrder  Int            @default(0) @map("sort_order")
+
+  spins WheelSpin[]
+
+  @@index([merchantId, active])
+  @@map("wheel_prizes")
+}
+
+/// Tirage effectué côté serveur ; l'unicité garantit 1 roue / jour / client.
+model WheelSpin {
+  id                 String            @id @default(uuid()) @db.Uuid
+  merchantId         String            @map("merchant_id") @db.Uuid
+  merchant           Merchant          @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  customerId         String            @map("customer_id") @db.Uuid
+  customer           Customer          @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  spinDate           DateTime          @map("spin_date") @db.Date // date locale Europe/Brussels
+  prizeId            String?           @map("prize_id") @db.Uuid
+  prize              WheelPrize?       @relation(fields: [prizeId], references: [id], onDelete: SetNull)
+  prizeLabel         String            @map("prize_label") // copie figée du lot
+  pointTransactionId String?           @unique @map("point_transaction_id") @db.Uuid
+  pointTransaction   PointTransaction? @relation(fields: [pointTransactionId], references: [id])
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([merchantId, customerId, spinDate])
+  @@map("wheel_spins")
+}
+
+// ----------------------------------------------------------------------------
+// Mouvements de points (append-only) et passages en magasin
+// ----------------------------------------------------------------------------
+
+model PointTransaction {
+  id         String   @id @default(uuid()) @db.Uuid
+  merchantId String   @map("merchant_id") @db.Uuid
+  merchant   Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  customerId String   @map("customer_id") @db.Uuid
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  type                PointTransactionType
+  points              Int // signé : + gain, − dépense / expiration
+  purchaseAmountCents Int?                 @map("purchase_amount_cents")
+  reason              String? // obligatoire pour ADJUSTMENT (CHECK SQL)
+
+  staffUserId    String?       @map("staff_user_id") @db.Uuid
+  staffUser      User?         @relation(fields: [staffUserId], references: [id], onDelete: SetNull)
+  deviceId       String?       @map("device_id") @db.Uuid
+  device         Device?       @relation(fields: [deviceId], references: [id], onDelete: SetNull)
+  kioskSessionId String?       @map("kiosk_session_id") @db.Uuid
+  kioskSession   KioskSession? @relation(fields: [kioskSessionId], references: [id], onDelete: SetNull)
+
+  // Lien vers le mouvement d'origine (bonus de niveau, annulation)
+  relatedTransactionId String?            @map("related_transaction_id") @db.Uuid
+  relatedTransaction   PointTransaction?  @relation("RelatedTransaction", fields: [relatedTransactionId], references: [id])
+  derivedTransactions  PointTransaction[] @relation("RelatedTransaction")
+
+  // Hors-ligne : clé générée sur l'appareil pour éviter les doublons au resync
+  idempotencyKey String?  @map("idempotency_key")
+  occurredAt     DateTime @default(now()) @map("occurred_at") // heure réelle de l'action
+  createdAt      DateTime @default(now()) @map("created_at") // heure d'enregistrement serveur
+
+  redemption Redemption?
+  wheelSpin  WheelSpin?
+
+  @@unique([merchantId, idempotencyKey])
+  @@index([merchantId, customerId, occurredAt])
+  @@index([merchantId, type, occurredAt])
+  @@map("point_transactions")
+}
+
+/// Un passage : la tablette identifie le client, la caisse le voit et valide l'achat.
+model KioskSession {
+  id         String             @id @default(uuid()) @db.Uuid
+  merchantId String             @map("merchant_id") @db.Uuid
+  merchant   Merchant           @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  deviceId   String             @map("device_id") @db.Uuid
+  device     Device             @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  customerId String?            @map("customer_id") @db.Uuid
+  customer   Customer?          @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  status     KioskSessionStatus @default(AWAITING_AUTH)
+  authMethod IdentificationMode? @map("auth_method")
+
+  createdAt    DateTime  @default(now()) @map("created_at")
+  identifiedAt DateTime? @map("identified_at")
+  completedAt  DateTime? @map("completed_at")
+  expiresAt    DateTime  @map("expires_at")
+
+  pointTransactions PointTransaction[]
+
+  @@index([merchantId, status, expiresAt])
+  @@map("kiosk_sessions")
+}
+
+// ----------------------------------------------------------------------------
+// Audit et RGPD
+// ----------------------------------------------------------------------------
+
+model AuditLog {
+  id         String    @id @default(uuid()) @db.Uuid
+  merchantId String?   @map("merchant_id") @db.Uuid // null = action plateforme
+  merchant   Merchant? @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+
+  actorType     ActorType @map("actor_type")
+  actorUserId   String?   @map("actor_user_id") @db.Uuid
+  actorUser     User?     @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+  actorDeviceId String?   @map("actor_device_id") @db.Uuid
+  actorDevice   Device?   @relation(fields: [actorDeviceId], references: [id], onDelete: SetNull)
+
+  action     String // ex. points.adjust, customer.export, customer.erase
+  entityType String  @map("entity_type")
+  entityId   String? @map("entity_id")
+  reason     String?
+  metadata   Json? // jamais de numéro ou de PIN en clair
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([merchantId, createdAt])
+  @@index([merchantId, action, createdAt])
+  @@map("audit_log")
+}
+
+model DataRequest {
+  id          String            @id @default(uuid()) @db.Uuid
+  merchantId  String            @map("merchant_id") @db.Uuid
+  merchant    Merchant          @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  customerId  String?           @map("customer_id") @db.Uuid // null après effacement
+  customer    Customer?         @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  type        DataRequestType
+  status      DataRequestStatus @default(OPEN)
+  notes       String?
+  requestedAt DateTime          @default(now()) @map("requested_at")
+  dueAt       DateTime          @map("due_at") // requested_at + 1 mois (art. 12 RGPD)
+  closedAt    DateTime?         @map("closed_at")
+  handledById String?           @map("handled_by_id") @db.Uuid
+  handledBy   User?             @relation(fields: [handledById], references: [id], onDelete: SetNull)
+
+  @@index([merchantId, status])
+  @@map("data_requests")
+}
