@@ -41,7 +41,8 @@ temporaire (tunnel Cloudflare, sans compte). Le terminal affiche ensuite :
 
 Plein écran : sur iPad, Safari › Partager › « Sur l'écran d'accueil » ; sur Android, Chrome › ⋮ ›
 « Installer l'application ». Pour bloquer la tablette sur l'app : Accès guidé (iPad) ou épinglage
-d'écran (Android). `Ctrl+C` arrête tout. L'adresse change à chaque lancement.
+d'écran (Android). Pour réafficher le QR code avec un nouveau code d'appairage, dans une **autre** fenêtre du
+Terminal : `npm run tablette:qr`. `Ctrl+C` arrête tout. L'adresse change à chaque lancement.
 
 ⚠️ Serveur de test : données de démo uniquement, pas de vrais clients.
 

@@ -48,6 +48,7 @@ npm run typecheck
 npm run dev               # http://localhost:3000
 npm run jobs:run          # jobs quotidiens (expiration, conservation)
 npm run tablette          # Mac : serveur de test + tunnel HTTPS + QR code pour une vraie tablette
+npm run tablette:qr       # réaffiche le QR code + nouveau code d'appairage (serveur lancé)
 ```
 
 Test navigateur : voir l'en-tête de `tests/e2e/parcours.mjs`.
