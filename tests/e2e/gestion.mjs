@@ -31,7 +31,9 @@ try {
   await page.getByRole("cell", { name: "1", exact: true }).first().waitFor();
   await page.getByRole("button", { name: "Voir le graphique" }).click();
   await shot(page, "g1-tableau-de-bord");
-  step("tableau de bord : chiffres, graphique et vue tableau");
+  await page.getByText("Ce que votre programme de fidélité vous apporte").waitFor();
+  await page.getByText("Habitués à relancer").waitFor();
+  step("tableau de bord : impact, chiffres, graphique, vue tableau, habitués à relancer");
 
   // Clients
   await page.getByRole("button", { name: "Clients", exact: true }).click();
@@ -54,8 +56,16 @@ try {
   await page.getByText("Baguette offerte").waitFor();
   step("récompenses : ajout d'une récompense");
 
-  // Règles : 2 points par euro
+  // Règles : bonus de fidélité, heures creuses, 2 points par euro
   await page.getByRole("button", { name: "Règles des points" }).click();
+  await page.getByText("Bonus de fidélité", { exact: true }).waitFor();
+  await page.getByLabel("Nombre de visites").fill("8");
+  await page.getByRole("button", { name: "Enregistrer les bonus" }).click();
+  await page.getByText("Bonus de fidélité enregistrés").waitFor();
+  await page.getByRole("button", { name: "+ Ajouter un créneau" }).click();
+  await page.getByRole("button", { name: "Enregistrer les heures creuses" }).click();
+  await page.getByText("Heures creuses enregistrées").waitFor();
+  step("bonus de fidélité (visite fêtée toutes les 8 visites) et heures creuses enregistrés");
   await page.getByLabel("Points par euro").fill("2");
   await shot(page, "g3-regles");
   await page.getByRole("button", { name: "Enregistrer les règles" }).click();
@@ -96,8 +106,9 @@ try {
   await page.getByText("Baguette offerte").waitFor();
   for (const d of "1000") await page.getByRole("button", { name: d, exact: true }).click();
   await page.getByRole("button", { name: "Valider" }).click();
-  await page.getByText(/\+2\d points pour Léa/).waitFor();
-  step("caisse : nouvelle récompense visible, 10 € → 20 points (+ bonus de niveau éventuel)");
+  const t = await page.getByText(/\+\d+ points pour Léa/).textContent();
+  if (!/^\+(2\d|4\d|6\d) points/.test(t)) throw new Error(`Points inattendus : ${t}`);
+  step(`caisse : nouvelle récompense visible, 10 € à 2 points/€ → ${t.split(" (")[0]}`);
 
   console.log("\nBack-office OK");
 } finally {

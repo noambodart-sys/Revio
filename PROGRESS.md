@@ -33,6 +33,31 @@
 - [x] Tests : 84 tests Vitest + parcours navigateur `tests/e2e/gestion.mjs`
 - [ ] Gestion de l'équipe (ajouter un vendeur) par le propriétaire : aujourd'hui via l'admin
 
+### Différenciation, lot 1 (14/11/2026)
+
+- [x] Tablette repensée : accueil en deux colonnes (paysage) ou empilé (portrait), couleurs du
+      commerce, solde avec anneau de progression, compteur animé, confettis, bonus détaillés
+- [x] Mode vitrine : après 30 s sans contact, diaporama (message du jour, récompenses, heures
+      creuses, avantages, invitation à s'inscrire)
+- [x] Heures creuses : créneaux à points multipliés (table `bonus_periods`), annoncés sur la
+      tablette et la caisse
+- [x] Bonus de régularité : Ne visite, N semaines d'affilée, anniversaire d'inscription
+      (sans date de naissance) — lignes dédiées dans le registre, soumises au plafond quotidien
+- [x] « Ce que votre programme vous apporte » : clients revenus après une absence et leurs achats,
+      part des achats faite par les réguliers, passages en heures creuses, bonus offerts
+- [x] Habitués à relancer (absents depuis plus de deux fois leur rythme habituel)
+- [x] Modèles par métier (boulangerie, boucherie, café, coiffeur, librairie) : démarrage rapide
+      dans `/gestion`, choix du métier à la création dans `/admin`
+- [x] 99 tests Vitest + parcours navigateur (vitrine incluse)
+
+### Idées en attente (à valider avec des commerçants)
+
+- [ ] Cagnotte solidaire pour une association du quartier (affichée sur la tablette)
+- [ ] Défi collectif du quartier (« 1 000 passages en décembre = cadeau pour tous »)
+- [ ] Passeport du quartier entre commerces voisins (offre Quartier, V2)
+- [ ] SMS « Vous nous manquez » en un clic (nécessite Brevo ; consentement marketing requis)
+- [ ] « Ma carte » : page personnelle du client par lien SMS (solde, historique, suppression)
+
 ### Reste à faire pour clore la Phase 1
 
 - [x] Inscription testée sur une vraie tablette (14/11/2026)

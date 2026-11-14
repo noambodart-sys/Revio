@@ -12,6 +12,7 @@ import { RulesTab } from "./RulesTab";
 import { WheelTiersTab } from "./WheelTiersTab";
 import { BrandingTab } from "./BrandingTab";
 import { RequestsTab } from "./RequestsTab";
+import { TemplatePicker } from "./TemplatePicker";
 
 const TABS = [
   { id: "dashboard", label: "Tableau de bord" },
@@ -84,6 +85,13 @@ export default function GestionPage() {
       )}
 
       <div className="mx-auto max-w-6xl p-5">
+        {!settings.merchant.businessType && settings.counts.customers === 0 && (
+          <section className="card mb-5 space-y-3 ring-2 ring-slate-900">
+            <h2 className="text-2xl font-bold">👋 Démarrage rapide</h2>
+            <p className="text-slate-600">Choisissez votre métier : récompenses, règles, bonus de fidélité, heures creuses et couleurs sont préremplis. Vous pourrez tout modifier ensuite.</p>
+            <TemplatePicker templates={settings.templates} current={null} flash={flash} onApplied={reload} />
+          </section>
+        )}
         {tab === "dashboard" && <DashboardTab enabled={settings.features.dashboard} />}
         {tab === "customers" && <CustomersTab flash={flash} />}
         {tab === "rewards" && <RewardsTab flash={flash} />}

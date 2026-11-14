@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import { api, errorMessage, formatDate } from "@/lib/api";
 import { signOut, useSession } from "@/lib/use-session";
 import { PRODUCT_NAME } from "@/config/product";
+import { BUSINESS_TEMPLATES } from "@/config/templates";
 
 interface MerchantRow {
   id: string;
@@ -34,7 +35,7 @@ interface AuditRow {
   merchant: { name: string } | null;
 }
 
-const emptyForm = { name: "", slug: "", vatNumber: "", addressLine1: "", postalCode: "", city: "", plan: "ESSENTIEL" as "ESSENTIEL" | "PRO", ownerEmail: "", ownerName: "", ownerPassword: "" };
+const emptyForm = { name: "", slug: "", vatNumber: "", addressLine1: "", postalCode: "", city: "", plan: "ESSENTIEL" as "ESSENTIEL" | "PRO", businessType: "", ownerEmail: "", ownerName: "", ownerPassword: "" };
 
 export default function AdminPage() {
   const me = useSession(["REVIO_ADMIN"], "/admin");
@@ -68,7 +69,7 @@ export default function AdminPage() {
     act(async () => {
       const m = await api<{ id: string }>("/api/v1/admin/merchants", {
         body: {
-          name: form.name, slug: form.slug, vatNumber: form.vatNumber || null, addressLine1: form.addressLine1 || null, postalCode: form.postalCode || null, city: form.city || null, plan: form.plan,
+          name: form.name, slug: form.slug, vatNumber: form.vatNumber || null, addressLine1: form.addressLine1 || null, postalCode: form.postalCode || null, city: form.city || null, plan: form.plan, businessType: form.businessType || null,
           owner: { email: form.ownerEmail, displayName: form.ownerName, password: form.ownerPassword },
         },
       });
@@ -117,6 +118,13 @@ export default function AdminPage() {
                 <select className="input" value={form.plan} onChange={(e) => setForm((f) => ({ ...f, plan: e.target.value as "ESSENTIEL" | "PRO" }))}>
                   <option value="ESSENTIEL">Essentiel</option>
                   <option value="PRO">Pro</option>
+                </select>
+              </div>
+              <div>
+                <label className="label">Métier (préremplit récompenses et règles)</label>
+                <select className="input" value={form.businessType} onChange={(e) => setForm((f) => ({ ...f, businessType: e.target.value }))}>
+                  <option value="">— le commerçant choisira —</option>
+                  {BUSINESS_TEMPLATES.map((t) => <option key={t.key} value={t.key}>{t.emoji} {t.label}</option>)}
                 </select>
               </div>
               <div className="border-t border-slate-200 pt-3 text-sm font-semibold">Compte du propriétaire</div>

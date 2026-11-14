@@ -34,7 +34,11 @@ const lastSmsCode = () => {
   return m.at(-1)[1];
 };
 const step = (s) => console.log(`✓ ${s}`);
-const shot = async (page, name) => SHOTS && page.screenshot({ path: `${SHOTS}/${name}.png` });
+const shot = async (page, name) => {
+  if (!SHOTS) return;
+  await page.waitForTimeout(1500); // fin des animations
+  await page.screenshot({ path: `${SHOTS}/${name}.png` });
+};
 const tapDigits = async (page, digits) => { for (const d of digits) await page.getByRole("button", { name: d, exact: true }).click(); };
 
 const browser = await chromium.launch();
@@ -64,6 +68,13 @@ try {
   await kiosk.getByRole("button", { name: "Appairer" }).click();
   await kiosk.getByText("Tapez votre numéro de GSM").waitFor();
   await shot(kiosk, "02-kiosque-accueil");
+  // La vitrine apparaît après 30 s d'inactivité ; un toucher ramène à l'accueil
+  await kiosk.waitForTimeout(32_000);
+  await kiosk.getByText("Touchez l'écran pour cumuler vos points").waitFor();
+  await shot(kiosk, "02b-kiosque-vitrine");
+  await kiosk.mouse.click(500, 600);
+  await kiosk.getByText("Tapez votre numéro de GSM").waitFor();
+  step("vitrine après 30 s d'inactivité, retour à l'accueil au toucher");
   step("tablette appairée");
 
   // --- Nouveau client ---
@@ -101,12 +112,14 @@ try {
   await tapDigits(pos, "12450"); // 124,50 €
   await shot(pos, "05-caisse");
   await pos.getByRole("button", { name: "Valider" }).click();
-  await pos.getByText(/\+124 points pour Léa/).waitFor();
-  step("caisse : achat de 124,50 € → +124 points");
+  const toast = await pos.getByText(/\+\d+ points pour Léa/).textContent();
+  const earned = Number(toast.match(/\+(\d+)/)[1]);
+  if (earned !== 124 && earned !== 248) throw new Error(`Points inattendus : ${toast}`);
+  step(`caisse : achat de 124,50 € → +${earned} points${earned === 248 ? " (heures creuses ×2)" : ""}`);
 
   // --- Tablette : résultat + roue ---
-  await kiosk.getByText("+124").waitFor({ timeout: 10000 });
-  await kiosk.getByText("Nouveau solde : 124 points").waitFor();
+  await kiosk.getByText("points gagnés !").waitFor({ timeout: 10000 });
+  await kiosk.getByText(`Nouveau solde : ${earned} points`).waitFor();
   await shot(kiosk, "06-kiosque-points");
   await kiosk.getByRole("button", { name: /Tourner la roue/ }).click();
   await kiosk.waitForTimeout(4600);

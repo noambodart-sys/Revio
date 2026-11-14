@@ -17,7 +17,10 @@ Référence fonctionnelle : `docs/architecture.md`. Avancement : `PROGRESS.md` (
    pour `revio_app`, trigger d'immutabilité pour tous). Le solde est toujours `SUM(points)`.
    Pour corriger : un nouveau mouvement (`ADJUSTMENT` avec motif, `REVERSAL`).
 3. **Aucune règle commerciale en dur.** Points par euro, niveaux, roue, expiration, conservation,
-   plafond anti-fraude… sont dans `rules`, `tier_levels`, `wheel_prizes`. Seuls les paramètres
+   plafond anti-fraude, bonus de régularité… sont dans `rules`, `tier_levels`, `wheel_prizes`,
+   `bonus_periods`. Les modèles par métier (`src/config/templates.ts`) ne sont que des valeurs
+   proposées, copiées dans ces tables. Tout bonus est une ligne dédiée du registre
+   (`*_BONUS`), calculée dans `services/engagement.ts` et soumise au plafond quotidien. Seuls les paramètres
    techniques (durée de session, nb de SMS/heure…) sont dans `TECH` (`src/config/product.ts`).
 4. **Données personnelles.**
    - Téléphone : chiffré AES-256-GCM (`encrypt`) + empreinte HMAC (`lookupHash`) pour la recherche,

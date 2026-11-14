@@ -33,6 +33,10 @@ interface Reward { id: string; name: string; pointsCost: number; stock: number |
 
 const TYPE_LABEL: Record<string, string> = {
   EARN: "Achat", TIER_BONUS: "Bonus niveau", WHEEL_BONUS: "Roue", REDEEM: "Récompense", ADJUSTMENT: "Correction", EXPIRATION: "Expiration", REVERSAL: "Annulation",
+  HAPPY_HOUR_BONUS: "Bonus heures creuses", VISIT_MILESTONE_BONUS: "Bonus visite", STREAK_BONUS: "Bonus régularité", ANNIVERSARY_BONUS: "Anniversaire de fidélité",
+};
+const BONUS_LABEL: Record<string, string> = {
+  HAPPY_HOUR_BONUS: "heures creuses", VISIT_MILESTONE_BONUS: "visite fêtée", STREAK_BONUS: "régularité", ANNIVERSARY_BONUS: "anniversaire",
 };
 
 export default function CaissePage() {
@@ -49,6 +53,7 @@ export default function CaissePage() {
   const [queued, setQueued] = useState(0);
   const [online, setOnline] = useState(true);
   const [modal, setModal] = useState<null | "adjust" | "erase" | "rectify">(null);
+  const [happyHour, setHappyHour] = useState<{ multiplierPercent: number; endMinute: number } | null>(null);
 
   const flash = (kind: "ok" | "err" | "warn", text: string) => {
     setToast({ kind, text });
@@ -69,7 +74,10 @@ export default function CaissePage() {
     poll();
     const t = setInterval(poll, 2000);
     api<Reward[]>("/api/v1/pos/rewards").then(setRewards).catch(() => undefined);
-    return () => clearInterval(t);
+    const status = () => api<{ happyHour: { active: { multiplierPercent: number; endMinute: number } | null } }>("/api/v1/pos/status").then((s) => setHappyHour(s.happyHour.active)).catch(() => undefined);
+    status();
+    const st = setInterval(status, 60_000);
+    return () => { clearInterval(t); clearInterval(st); };
   }, [me]);
 
   // File hors-ligne
@@ -142,8 +150,10 @@ export default function CaissePage() {
       if (!selected) return;
       const body = { customerId: selected.customerId, amountCents, kioskSessionId: selected.sessionId, idempotencyKey: idemKey, occurredAt: new Date().toISOString() };
       try {
-        const r = await api<{ earned: number; balance: number; capped: boolean; bonusPoints: number }>("/api/v1/pos/purchases", { body });
-        flash(r.capped ? "warn" : "ok", `+${r.earned} points pour ${label} (solde ${r.balance})${r.bonusPoints ? ` dont ${r.bonusPoints} de bonus` : ""}${r.capped ? " — plafond quotidien atteint" : ""}`);
+        const r = await api<{ earned: number; balance: number; capped: boolean; bonusPoints: number; bonuses: { type: string; points: number }[] }>("/api/v1/pos/purchases", { body });
+        const extra = r.bonusPoints + r.bonuses.reduce((s, b) => s + b.points, 0);
+        const names = [...(r.bonusPoints ? ["niveau"] : []), ...r.bonuses.map((b) => BONUS_LABEL[b.type] ?? "bonus")];
+        flash(r.capped ? "warn" : "ok", `+${r.earned} points pour ${label} (solde ${r.balance})${extra ? ` dont ${extra} de bonus : ${names.join(", ")}` : ""}${r.capped ? " — plafond quotidien atteint" : ""}`);
         setSelected((s) => (s ? { ...s, sessionId: null } : s));
         await loadDetail(selected.customerId);
       } catch (e) {
@@ -181,6 +191,11 @@ export default function CaissePage() {
       <header className="flex flex-wrap items-center justify-between gap-3 bg-slate-900 px-5 py-3 text-white">
         <div className="text-lg font-bold">{me.merchantName} — Caisse</div>
         <div className="flex items-center gap-4 text-sm">
+          {happyHour && (
+            <span className="rounded-full bg-amber-400 px-3 py-1 font-bold text-slate-900">
+              ⚡ Heures creuses : points {happyHour.multiplierPercent % 100 === 0 ? `×${happyHour.multiplierPercent / 100}` : `+${happyHour.multiplierPercent - 100} %`} jusqu&apos;à {Math.floor(happyHour.endMinute / 60)} h{happyHour.endMinute % 60 ? String(happyHour.endMinute % 60).padStart(2, "0") : ""}
+            </span>
+          )}
           {!online && <span className="rounded-full bg-amber-400 px-3 py-1 font-semibold text-slate-900">Hors connexion</span>}
           {queued > 0 && <button className="rounded-full bg-amber-200 px-3 py-1 font-semibold text-slate-900" onClick={sync}>{queued} achat(s) à synchroniser</button>}
           {me.role === "OWNER" && <a href="/gestion" className="rounded-lg bg-white px-3 py-1.5 font-semibold text-slate-900">Gestion</a>}

@@ -11,6 +11,17 @@ interface Dashboard {
   topRewards: { name: string; count: number }[];
   visitsByDay: { day: string; visits: number }[];
   alerts: { id: string; action: string; at: string; by: string | null; metadata: Record<string, unknown> | null }[];
+  impact: {
+    returningCustomers: number;
+    returningRevenueCents: number;
+    regularCustomers: number;
+    regularRevenueCents: number;
+    regularShare: number;
+    happyHourVisits: number;
+    loyaltyBonuses: number;
+    gapDays: number;
+  };
+  winBack: { id: string; firstName: string | null; maskedPhone: string | null; visits: number; lastVisitAt: string; usualEveryDays: number; daysSince: number; balance: number; marketingSms: boolean }[];
 }
 
 const ALERT_LABEL: Record<string, string> = {
@@ -47,8 +58,29 @@ export function DashboardTab({ enabled }: { enabled: boolean }) {
     { label: "Récompenses remises", value: d.rewards30, sub: `${d.points.outstanding} points en circulation` },
   ];
 
+  const im = d.impact;
   return (
     <div className="space-y-5">
+      <section className="rounded-3xl bg-slate-900 p-6 text-white shadow-lg">
+        <h2 className="text-lg font-medium text-slate-300">Ce que votre programme de fidélité vous apporte · 30 derniers jours</h2>
+        <div className="mt-4 grid gap-6 md:grid-cols-3">
+          <div>
+            <div className="text-5xl font-black tabular-nums">{im.returningCustomers}</div>
+            <div className="mt-1 text-slate-300">client{im.returningCustomers > 1 ? "s" : ""} revenu{im.returningCustomers > 1 ? "s" : ""} après plus de {im.gapDays} jours d&apos;absence</div>
+            <div className="mt-1 text-xl font-semibold text-emerald-300">{formatEuros(im.returningRevenueCents)} d&apos;achats depuis leur retour</div>
+          </div>
+          <div>
+            <div className="text-5xl font-black tabular-nums">{im.regularShare} %</div>
+            <div className="mt-1 text-slate-300">de vos achats encodés viennent de {im.regularCustomers} client{im.regularCustomers > 1 ? "s" : ""} régulier{im.regularCustomers > 1 ? "s" : ""} (2 passages ou plus)</div>
+            <div className="mt-1 text-xl font-semibold text-emerald-300">{formatEuros(im.regularRevenueCents)}</div>
+          </div>
+          <div className="space-y-3">
+            <div><span className="text-3xl font-black tabular-nums">{im.happyHourVisits}</span> <span className="text-slate-300">passages pendant vos heures creuses</span></div>
+            <div><span className="text-3xl font-black tabular-nums">{im.loyaltyBonuses}</span> <span className="text-slate-300">bonus de fidélité offerts (visites, régularité, anniversaires)</span></div>
+          </div>
+        </div>
+      </section>
+
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
         {tiles.map((t) => (
           <div key={t.label} className="card">
@@ -61,6 +93,35 @@ export function DashboardTab({ enabled }: { enabled: boolean }) {
 
       <div className="card">
         <VisitsChart data={d.visitsByDay} />
+      </div>
+
+      <div className="card">
+        <h3 className="text-lg font-semibold">Habitués à relancer</h3>
+        <p className="mb-3 text-slate-600">Des clients réguliers qu&apos;on ne voit plus : absents depuis plus de deux fois leur rythme habituel.</p>
+        {d.winBack.length === 0 ? (
+          <p className="text-slate-500">Personne pour l&apos;instant. Vos habitués sont fidèles au poste. ✓</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead className="text-sm text-slate-500">
+                <tr><th className="py-2 pr-3">Client</th><th className="pr-3">Venait</th><th className="pr-3">Absent depuis</th><th className="pr-3 text-right">Passages</th><th className="pr-3 text-right">Points</th><th>Accord SMS</th></tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {d.winBack.map((c) => (
+                  <tr key={c.id} className="cursor-pointer hover:bg-slate-50" onClick={() => (window.location.href = `/caisse?client=${c.id}`)}>
+                    <td className="py-2 pr-3"><div className="font-medium">{c.firstName ?? "—"}</div><div className="text-sm text-slate-500">{c.maskedPhone}</div></td>
+                    <td className="pr-3">{c.usualEveryDays <= 1 ? "tous les jours" : `tous les ${c.usualEveryDays} jours`}</td>
+                    <td className="pr-3 font-semibold text-amber-700">{c.daysSince} jours</td>
+                    <td className="pr-3 text-right tabular-nums">{c.visits}</td>
+                    <td className="pr-3 text-right tabular-nums">{c.balance}</td>
+                    <td>{c.marketingSms ? "oui" : "non"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        <p className="mt-3 text-sm text-slate-500">Bientôt : un SMS « Vous nous manquez » en un clic, uniquement pour les clients qui ont accepté les offres.</p>
       </div>
 
       <div className="grid gap-5 lg:grid-cols-2">

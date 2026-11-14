@@ -2,6 +2,8 @@
 import { useState } from "react";
 import { api, errorMessage } from "@/lib/api";
 import type { Flash, Settings } from "./types";
+import { HappyHours, LoyaltyBonuses } from "./LoyaltyBonuses";
+import { TemplatePicker } from "./TemplatePicker";
 
 /** "5,50" → 550 ; renvoie null si invalide. */
 function eurosToCents(v: string): number | null {
@@ -68,6 +70,9 @@ export function RulesTab({ settings, flash, onSaved }: { settings: Settings; fla
   );
 
   return (
+    <div className="space-y-5">
+    <LoyaltyBonuses settings={settings} flash={flash} onSaved={onSaved} />
+    <HappyHours settings={settings} flash={flash} onSaved={onSaved} />
     <form className="space-y-5" onSubmit={(e) => { e.preventDefault(); save(); }}>
       <section className="card space-y-4">
         <h2 className="text-xl font-semibold">Gain de points</h2>
@@ -122,5 +127,11 @@ export function RulesTab({ settings, flash, onSaved }: { settings: Settings; fla
         <button className="btn-dark px-8 py-4 text-lg shadow-lg" disabled={busy}>Enregistrer les règles</button>
       </div>
     </form>
+    <section className="card space-y-3">
+      <h2 className="text-xl font-semibold">Repartir d&apos;un modèle</h2>
+      <p className="text-slate-600">Remplace vos règles, niveaux, récompenses, roue et heures creuses par les réglages conseillés pour un métier. Vos clients et leurs points ne changent pas.</p>
+      <TemplatePicker templates={settings.templates} current={settings.merchant.businessType} flash={flash} onApplied={onSaved} confirmFirst />
+    </section>
+    </div>
   );
 }

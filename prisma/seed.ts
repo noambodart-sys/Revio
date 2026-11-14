@@ -49,8 +49,17 @@ async function main() {
       owner: { email: "proprio@demo.local", displayName: "Claire (propriétaire)", password: "demo-proprio-2026" },
     });
     await createUser({ email: "vendeur@demo.local", password: "demo-vendeur-2026", displayName: "Sam (vendeur)", role: "STAFF", merchantId: merchant.id });
-    await db.merchant.update({ where: { id: merchant.id }, data: { primaryColor: "#b45309", subscriptionStatus: "ACTIVE" } });
-    await db.rules.update({ where: { merchantId: merchant.id }, data: { wheelEnabled: true } });
+    await db.merchant.update({
+      where: { id: merchant.id },
+      data: { primaryColor: "#b45309", subscriptionStatus: "ACTIVE", businessType: "boulangerie", kioskMessage: "Points doublés en semaine de 14 h à 16 h !" },
+    });
+    await db.rules.update({
+      where: { merchantId: merchant.id },
+      data: { wheelEnabled: true, visitMilestoneEvery: 5, visitMilestonePoints: 20, streakWeeks: 4, streakPoints: 30, anniversaryPoints: 50 },
+    });
+    await db.bonusPeriod.createMany({
+      data: [1, 2, 3, 4, 5].map((d) => ({ merchantId: merchant!.id, dayOfWeek: d, startMinute: 14 * 60, endMinute: 16 * 60, multiplierPercent: 200 })),
+    });
     const rewards = await Promise.all(
       [
         { name: "Croissant offert", pointsCost: 60 },
