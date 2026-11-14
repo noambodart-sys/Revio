@@ -47,6 +47,7 @@ npm test                  # tests unitaires + intégration (base réelle)
 npm run typecheck
 npm run dev               # http://localhost:3000
 npm run jobs:run          # jobs quotidiens (expiration, conservation)
+npm run tablette          # Mac : serveur de test + tunnel HTTPS + QR code pour une vraie tablette
 ```
 
 Test navigateur : voir l'en-tête de `tests/e2e/parcours.mjs`.

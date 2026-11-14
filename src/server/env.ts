@@ -8,6 +8,8 @@ const schema = z.object({
   SMS_PROVIDER: z.enum(["console", "brevo"]).default("console"),
   BREVO_API_KEY: z.string().optional(),
   SMS_SENDER: z.string().default("Revio"),
+  /** Serveur de test uniquement : autorise SMS_PROVIDER=console avec NODE_ENV=production. */
+  ALLOW_CONSOLE_SMS: z.enum(["true", "false"]).default("false").transform((v) => v === "true"),
   APP_URL: z.string().default("http://localhost:3000"),
   NODE_ENV: z.string().default("development"),
 });

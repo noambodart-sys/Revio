@@ -22,6 +22,29 @@ npm run dev
 - Admin : http://localhost:3000/admin (`admin@revio.local` / `admin-revio-dev-2026` + code 2FA :
   ajouter le secret affiché par le seed dans une app d'authentification)
 
+## Tester sur une vraie tablette (Mac)
+
+Une seule commande, depuis le dossier du projet :
+
+```bash
+npm run tablette
+```
+
+Elle installe ce qui manque (Node.js, PostgreSQL 16, cloudflared, via [Homebrew](https://brew.sh)),
+prépare la base de démo, lance l'application en mode production et ouvre une adresse HTTPS
+temporaire (tunnel Cloudflare, sans compte). Le terminal affiche ensuite :
+
+- un **QR code** à scanner avec l'appareil photo de la tablette (ouvre l'écran client) ;
+- le **code d'appairage** à saisir sur la tablette ;
+- l'adresse de la **caisse** à ouvrir sur le Mac ou un téléphone ;
+- les **codes SMS**, qui ne sont pas envoyés mais affichés dans le terminal.
+
+Plein écran : sur iPad, Safari › Partager › « Sur l'écran d'accueil » ; sur Android, Chrome › ⋮ ›
+« Installer l'application ». Pour bloquer la tablette sur l'app : Accès guidé (iPad) ou épinglage
+d'écran (Android). `Ctrl+C` arrête tout. L'adresse change à chaque lancement.
+
+⚠️ Serveur de test : données de démo uniquement, pas de vrais clients.
+
 ## Tests
 
 ```bash

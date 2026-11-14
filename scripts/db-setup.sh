@@ -8,7 +8,7 @@ set -euo pipefail
 RESET=0
 if [[ "${1:-}" == "--reset" ]]; then RESET=1; shift; fi
 DB="${1:-revio}"
-PSQL=(psql -v ON_ERROR_STOP=1 -q)
+PSQL=(psql -d postgres -v ON_ERROR_STOP=1 -q)
 if [[ "$(id -u)" == "0" ]] && id postgres >/dev/null 2>&1; then PSQL=(sudo -u postgres "${PSQL[@]}"); fi
 
 "${PSQL[@]}" <<SQL

@@ -1,14 +1,21 @@
 import { env } from "./env";
+import { maskPhone } from "./phone";
 
 export interface SmsProvider {
   send(toE164: string, text: string): Promise<void>;
 }
 
-/** Développement : le SMS est écrit dans les logs du serveur (jamais en production). */
+/**
+ * Développement et tests sur tablette : le SMS est écrit dans le terminal du serveur
+ * (numéro masqué). Interdit en production, sauf autorisation explicite ALLOW_CONSOLE_SMS=true
+ * (serveur de test uniquement, jamais avec de vrais clients).
+ */
 const consoleProvider: SmsProvider = {
   async send(to, text) {
-    if (env().NODE_ENV === "production") throw new Error("SMS_PROVIDER=console interdit en production");
-    console.info(`[SMS → ${to}] ${text}`);
+    if (env().NODE_ENV === "production" && !env().ALLOW_CONSOLE_SMS) {
+      throw new Error("SMS_PROVIDER=console interdit en production");
+    }
+    console.info(`\n📱 [SMS → ${maskPhone(to)}] ${text}\n`);
   },
 };
 

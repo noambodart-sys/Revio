@@ -25,6 +25,8 @@
 
 ### Reste à faire pour clore la Phase 1
 
+- [x] Outil de test tablette : `npm run tablette` (Mac — serveur de production local, tunnel
+      HTTPS Cloudflare, QR code, codes SMS dans le terminal via `ALLOW_CONSOLE_SMS=true`)
 - [ ] **Test sur une vraie tablette** (critère de sortie) : installation PWA plein écran sur iPad
       et Android, taille des touches, mode kiosque (accès guidé iOS / épinglage Android)
 - [ ] Hébergement UE : choisir le fournisseur, créer les 3 rôles PostgreSQL, secrets, HTTPS, cron

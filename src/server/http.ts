@@ -3,6 +3,7 @@ import { Prisma, type UserRole } from "@prisma/client";
 import { ZodError, type ZodTypeAny, type z } from "zod";
 import { AppError } from "./errors";
 import { systemDb } from "./db";
+import { env } from "./env";
 import type { Ctx } from "./context";
 import { authenticateDevice } from "./services/devices";
 import { getSessionUser, SESSION_COOKIE, type SessionUser } from "./services/auth";
@@ -91,12 +92,28 @@ export async function requireDevice(req: NextRequest): Promise<Ctx & { merchant:
 
 const MUTATING = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
-/** Protection CSRF des routes à cookie : même origine + JSON obligatoire. */
+/**
+ * Protection CSRF des routes à cookie : la requête doit venir de notre propre site
+ * (même hôte, ou l'adresse publique APP_URL quand on est derrière un proxy / tunnel).
+ */
 function assertSameOrigin(req: NextRequest) {
   if (!MUTATING.has(req.method)) return;
   const origin = req.headers.get("origin");
-  const host = req.headers.get("x-forwarded-host") ?? req.headers.get("host");
-  if (!origin || !host || new URL(origin).host !== host) throw new AppError(403, "CSRF", "Origine refusée");
+  if (!origin) throw new AppError(403, "CSRF", "Origine refusée");
+  let originHost: string;
+  try {
+    originHost = new URL(origin).host;
+  } catch {
+    throw new AppError(403, "CSRF", "Origine refusée");
+  }
+  const allowed = new Set<string>();
+  for (const h of [req.headers.get("x-forwarded-host"), req.headers.get("host")]) if (h) allowed.add(h);
+  try {
+    allowed.add(new URL(env().APP_URL).host);
+  } catch {
+    /* APP_URL invalide : ignoré */
+  }
+  if (!allowed.has(originHost)) throw new AppError(403, "CSRF", "Origine refusée");
 }
 
 export async function requireUser(req: NextRequest, roles: UserRole[]): Promise<{ user: SessionUser; ctx: Ctx }> {
