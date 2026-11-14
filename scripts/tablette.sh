@@ -63,12 +63,20 @@ TOTP_LINE=$(grep "Secret 2FA" "$LOGDIR/seed.log" || true)
 if [[ -n "$TOTP_LINE" ]]; then cp "$LOGDIR/seed.log" "$LOGDIR/premier-seed.log"; fi
 
 # --- 3. Tunnel HTTPS (d'abord, pour connaître l'adresse publique) -------------------
+# Libère le port (un ancien serveur encore lancé servirait l'ancienne version)
+free_port() {
+  local pids
+  pids=$(lsof -ti "tcp:$PORT" -sTCP:LISTEN 2>/dev/null || true)
+  if [[ -n "$pids" ]]; then kill $pids 2>/dev/null || true; sleep 1; fi
+}
+free_port
+
 PIDS=()
 cleanup() {
   echo
   info "Arrêt du serveur et du tunnel…"
   for p in "${PIDS[@]:-}"; do [[ -n "$p" ]] && kill "$p" 2>/dev/null || true; done
-  pkill -f "next start -p $PORT" 2>/dev/null || true
+  free_port
   pkill -f "cloudflared tunnel --no-autoupdate --url http://localhost:$PORT" 2>/dev/null || true
 }
 trap cleanup EXIT INT TERM
@@ -111,7 +119,10 @@ echo
 bold "2) CAISSE — sur ce Mac ou ton téléphone : $URL/caisse"
 echo "   vendeur@demo.local / demo-vendeur-2026     (propriétaire : proprio@demo.local / demo-proprio-2026)"
 echo
-bold "3) ADMIN — $URL/admin"
+bold "3) GESTION (back-office du commerçant) — $URL/gestion"
+echo "   proprio@demo.local / demo-proprio-2026"
+echo
+bold "4) ADMIN — $URL/admin"
 echo "   admin@revio.local / admin-revio-dev-2026 + code 2FA"
 echo "   (secret 2FA à ajouter dans une app d'authentification : voir $LOGDIR/premier-seed.log)"
 echo

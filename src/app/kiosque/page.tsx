@@ -117,8 +117,10 @@ export default function KioskPage() {
       setLegalModal(null);
       setScreen("home");
       touch();
+      // Recharge l'apparence et les réglages du commerce (modifiés depuis le back-office)
+      if (token) loadConfig(token);
     },
-    [sessionId, token],
+    [sessionId, token, loadConfig],
   );
 
   const handleError = useCallback(

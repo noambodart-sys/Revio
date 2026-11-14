@@ -4,6 +4,7 @@ import type { Tx } from "../db";
 import type { Ctx } from "../context";
 import { AppError } from "../errors";
 import { audit } from "../audit";
+import { PLAN_FEATURES } from "@/config/plans";
 
 /** Valeurs proposées à la création d'un commerce ; ensuite tout est réglable. */
 export const DEFAULT_TIERS = [
@@ -12,10 +13,22 @@ export const DEFAULT_TIERS = [
   { name: "Or", rank: 2, minPoints: 1000, bonusPercent: 10 },
 ];
 
-export async function getRules(tx: Tx, merchantId: string): Promise<Rules> {
+/** Règles telles que réglées par le commerçant (sans tenir compte de l'offre). */
+export async function getStoredRules(tx: Tx, merchantId: string): Promise<Rules> {
   const r = await tx.rules.findUnique({ where: { merchantId } });
   if (!r) throw new AppError(500, "RULES_MISSING", "Règles du commerce non configurées");
   return r;
+}
+
+/**
+ * Règles effectives : la roue et les niveaux ne s'appliquent que si l'offre les inclut.
+ * C'est la version que toute la logique métier doit utiliser.
+ */
+export async function getRules(tx: Tx, merchantId: string): Promise<Rules> {
+  const r = await getStoredRules(tx, merchantId);
+  const m = await tx.merchant.findUnique({ where: { id: merchantId }, select: { plan: true } });
+  const f = PLAN_FEATURES[m?.plan ?? "ESSENTIEL"];
+  return { ...r, wheelEnabled: r.wheelEnabled && f.wheel, tiersEnabled: r.tiersEnabled && f.tiers };
 }
 
 /** Crée les règles (valeurs par défaut de la base) et les niveaux par défaut. */
@@ -46,7 +59,7 @@ export const rulesPatchSchema = z
   .strict();
 
 export async function updateRules(tx: Tx, ctx: Ctx, patch: z.infer<typeof rulesPatchSchema>) {
-  const before = await getRules(tx, ctx.merchantId);
+  const before = await getStoredRules(tx, ctx.merchantId);
   const updated = await tx.rules.update({
     where: { merchantId: ctx.merchantId },
     data: { ...patch, updatedById: ctx.actor.type === "USER" ? ctx.actor.userId : null },

@@ -31,9 +31,12 @@ Référence fonctionnelle : `docs/architecture.md`. Avancement : `PROGRESS.md` (
 5. **Toute la logique métier est dans `src/server/services/`.** Les routes API (`src/app/api/v1`)
    valident l'entrée (Zod), authentifient, ouvrent `withTenant` et appellent un service. Les écrans
    ne calculent rien.
-6. **Interface en français**, pensée pour le tactile (grandes cibles, pavé numérique).
+6. **Offres.** Ce que chaque offre inclut est défini dans `src/config/plans.ts`. La roue et les niveaux
+   ne s'appliquent que via `getRules()` (règles *effectives*, filtrées par l'offre) ; `getStoredRules()`
+   ne sert qu'à l'écran de réglages.
+7. **Interface en français**, pensée pour le tactile (grandes cibles, pavé numérique).
    Le nom du produit vient de `PRODUCT_NAME` uniquement.
-7. **Échecs qui doivent être comptés** (PIN, code SMS) : le service renvoie un résultat au lieu de
+8. **Échecs qui doivent être comptés** (PIN, code SMS) : le service renvoie un résultat au lieu de
    lever une exception, sinon la transaction annule l'incrément du compteur.
 
 ## Commandes
@@ -51,7 +54,9 @@ npm run tablette          # Mac : serveur de test + tunnel HTTPS + QR code pour 
 npm run tablette:qr       # réaffiche le QR code + nouveau code d'appairage (serveur lancé)
 ```
 
-Test navigateur : voir l'en-tête de `tests/e2e/parcours.mjs`.
+Tests navigateur : `tests/e2e/parcours.mjs` puis `tests/e2e/gestion.mjs` (voir leur en-tête).
+
+Écrans : `/kiosque` (tablette), `/caisse` (vendeur), `/gestion` (propriétaire), `/admin` (équipe).
 
 ## Repères
 

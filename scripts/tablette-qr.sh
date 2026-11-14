@@ -23,3 +23,4 @@ node -e 'require("qrcode-terminal").generate(process.argv[1], { small: true })' 
 echo "Tablette : $URL/kiosque"
 printf "\033[1mCode d'appairage : %s\033[0m   (valable 30 min)\n" "$CODE"
 echo "Caisse   : $URL/caisse"
+echo "Gestion  : $URL/gestion  (proprio@demo.local / demo-proprio-2026)"

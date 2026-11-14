@@ -23,8 +23,19 @@
 - [x] Tests : 77 tests Vitest (calculs, crypto, TOTP, **isolation multi-tenant table par table**,
       parcours complets) + parcours navigateur Playwright (`tests/e2e/parcours.mjs`)
 
+### Back-office commerçant (14/11/2026)
+
+- [x] `/gestion` (propriétaire) : tableau de bord (offre Pro), clients (liste, recherche, export
+      CSV à numéros masqués, accès à la fiche), récompenses, règles des points, roue et niveaux,
+      apparence de la tablette (couleur, logo), suivi des demandes RGPD
+- [x] Offres : `src/config/plans.ts` — roue, niveaux et tableau de bord réservés à l'offre Pro
+- [x] La tablette recharge l'apparence et les règles à chaque retour à l'accueil
+- [x] Tests : 84 tests Vitest + parcours navigateur `tests/e2e/gestion.mjs`
+- [ ] Gestion de l'équipe (ajouter un vendeur) par le propriétaire : aujourd'hui via l'admin
+
 ### Reste à faire pour clore la Phase 1
 
+- [x] Inscription testée sur une vraie tablette (14/11/2026)
 - [x] Outil de test tablette : `npm run tablette` (Mac — serveur de production local, tunnel
       HTTPS Cloudflare, QR code, codes SMS dans le terminal via `ALLOW_CONSOLE_SMS=true`)
 - [ ] **Test sur une vraie tablette** (critère de sortie) : installation PWA plein écran sur iPad
@@ -48,8 +59,6 @@
 - **Rappel avant expiration des points** (SMS si consentement) : réglage présent
   (`expiry_reminder_days`), envoi pas encore implémenté.
 - **Limitation de débit** en mémoire : suffit pour une instance ; passer à Redis si plusieurs.
-- **Back-office commerçant** : l'API des réglages existe (`/api/v1/settings/*`, demandes RGPD
-  `/api/v1/gdpr/requests`) mais pas encore d'écran (prévu Phase 3, offre Pro).
 - Tablette : changer de commerce = révoquer puis ré-appairer.
 
 ### Phase 3 (rappel)

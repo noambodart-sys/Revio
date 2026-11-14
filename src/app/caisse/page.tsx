@@ -55,6 +55,13 @@ export default function CaissePage() {
     setTimeout(() => setToast((t) => (t?.text === text ? null : t)), 5000);
   };
 
+  // Ouverture directe d'une fiche depuis le back-office : /caisse?client=<id>
+  useEffect(() => {
+    if (!me) return;
+    const id = new URLSearchParams(window.location.search).get("client");
+    if (id && /^[0-9a-f-]{36}$/i.test(id)) setSelected({ customerId: id, sessionId: null });
+  }, [me]);
+
   // Passages en cours à la tablette
   useEffect(() => {
     if (!me) return;
@@ -176,6 +183,7 @@ export default function CaissePage() {
         <div className="flex items-center gap-4 text-sm">
           {!online && <span className="rounded-full bg-amber-400 px-3 py-1 font-semibold text-slate-900">Hors connexion</span>}
           {queued > 0 && <button className="rounded-full bg-amber-200 px-3 py-1 font-semibold text-slate-900" onClick={sync}>{queued} achat(s) à synchroniser</button>}
+          {me.role === "OWNER" && <a href="/gestion" className="rounded-lg bg-white px-3 py-1.5 font-semibold text-slate-900">Gestion</a>}
           <span>{me.displayName}</span>
           <button className="underline" onClick={signOut}>Déconnexion</button>
         </div>
