@@ -54,6 +54,11 @@ export const rulesPatchSchema = z
     dailyPointsCap: z.number().int().positive().nullable(),
     adjustmentAlertDailyCount: z.number().int().positive(),
     kioskResetSeconds: z.number().int().min(5).max(120),
+    visitMilestoneEvery: z.number().int().min(2).max(1000).nullable(),
+    visitMilestonePoints: z.number().int().min(0).max(100_000),
+    streakWeeks: z.number().int().min(2).max(52).nullable(),
+    streakPoints: z.number().int().min(0).max(100_000),
+    anniversaryPoints: z.number().int().positive().max(100_000).nullable(),
   })
   .partial()
   .strict();

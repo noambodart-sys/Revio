@@ -3,6 +3,7 @@ import { requireDevice, route } from "@/server/http";
 import { getRules } from "@/server/services/rules";
 import { currentLegalDocument, renderLegalText } from "@/server/services/consents";
 import { PRODUCT_NAME } from "@/config/product";
+import { happyHourStatus } from "@/server/services/engagement";
 
 /** Configuration de la tablette : identité visuelle, réglages d'affichage, textes juridiques à jour. */
 export const GET = route(async (req) => {
@@ -27,7 +28,14 @@ export const GET = route(async (req) => {
     );
     return {
       productName: PRODUCT_NAME,
-      merchant: { name: m.name, logoUrl: m.logoUrl, primaryColor: m.primaryColor, secondaryColor: m.secondaryColor },
+      merchant: { name: m.name, logoUrl: m.logoUrl, primaryColor: m.primaryColor, secondaryColor: m.secondaryColor, kioskMessage: m.kioskMessage },
+      rewards: (await tx.reward.findMany({ where: { active: true }, orderBy: [{ sortOrder: "asc" }, { pointsCost: "asc" }], take: 6 })).map((r) => ({ name: r.name, pointsCost: r.pointsCost })),
+      happyHour: await happyHourStatus(tx, ctx.merchantId),
+      loyalty: {
+        visitMilestone: rules.visitMilestoneEvery ? { every: rules.visitMilestoneEvery, points: rules.visitMilestonePoints } : null,
+        streak: rules.streakWeeks ? { weeks: rules.streakWeeks, points: rules.streakPoints } : null,
+        anniversaryPoints: rules.anniversaryPoints,
+      },
       rules: {
         identificationMode: rules.identificationMode,
         kioskResetSeconds: rules.kioskResetSeconds,

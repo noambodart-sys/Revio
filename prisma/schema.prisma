@@ -86,6 +86,10 @@ enum PointTransactionType {
   ADJUSTMENT // correction manuelle (motif obligatoire)
   EXPIRATION // expiration après inactivité (négatif)
   REVERSAL // annulation d'un mouvement précédent
+  HAPPY_HOUR_BONUS // points supplémentaires pendant un créneau « heures creuses »
+  VISIT_MILESTONE_BONUS // bonus de la Ne visite
+  STREAK_BONUS // bonus de régularité (N semaines d'affilée)
+  ANNIVERSARY_BONUS // anniversaire d'inscription
 }
 
 enum KioskSessionStatus {
@@ -143,6 +147,8 @@ model Merchant {
   logoUrl        String? @map("logo_url")
   primaryColor   String? @map("primary_color")
   secondaryColor String? @map("secondary_color")
+  kioskMessage   String? @map("kiosk_message") // message du jour affiché par la tablette en veille
+  businessType   String? @map("business_type") // métier (modèles de démarrage)
 
   // Abonnement
   plan                 Plan               @default(ESSENTIEL)
@@ -168,6 +174,7 @@ model Merchant {
   tierLevels          TierLevel[]
   rewards             Reward[]
   wheelPrizes         WheelPrize[]
+  bonusPeriods        BonusPeriod[]
   wheelSpins          WheelSpin[]
   pointTransactions   PointTransaction[]
   redemptions         Redemption[]
@@ -411,6 +418,13 @@ model Rules {
   // Tablette
   kioskResetSeconds Int @default(10) @map("kiosk_reset_seconds")
 
+  // Bonus de régularité (null = désactivé)
+  visitMilestoneEvery  Int? @map("visit_milestone_every") // ex. 10 → bonus à la 10e, 20e… visite
+  visitMilestonePoints Int  @default(0) @map("visit_milestone_points")
+  streakWeeks          Int? @map("streak_weeks") // ex. 4 → bonus après 4 semaines d'affilée avec au moins une visite
+  streakPoints         Int  @default(0) @map("streak_points")
+  anniversaryPoints    Int? @map("anniversary_points") // cadeau à la première visite après chaque anniversaire d'inscription
+
   updatedAt   DateTime @updatedAt @map("updated_at")
   updatedById String?  @map("updated_by_id") @db.Uuid
 
@@ -431,6 +445,22 @@ model TierLevel {
 
   @@unique([merchantId, rank])
   @@map("tier_levels")
+}
+
+/// Créneau « heures creuses » : les points des achats sont multipliés.
+model BonusPeriod {
+  id                String   @id @default(uuid()) @db.Uuid
+  merchantId        String   @map("merchant_id") @db.Uuid
+  merchant          Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  dayOfWeek         Int      @map("day_of_week") // 1 = lundi … 7 = dimanche (heure locale du commerce)
+  startMinute       Int      @map("start_minute") // minutes depuis minuit, ex. 840 = 14:00
+  endMinute         Int      @map("end_minute") // exclu
+  multiplierPercent Int      @map("multiplier_percent") // 200 = points ×2
+  active            Boolean  @default(true)
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  @@index([merchantId, dayOfWeek])
+  @@map("bonus_periods")
 }
 
 // ----------------------------------------------------------------------------

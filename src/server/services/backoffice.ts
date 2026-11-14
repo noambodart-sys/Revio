@@ -206,6 +206,7 @@ export const brandingSchema = z
   .object({
     primaryColor: z.string().regex(/^#[0-9a-fA-F]{6}$/, "Couleur invalide").nullable(),
     logoUrl: z.string().max(Math.ceil(MAX_LOGO_BYTES * 1.4)).nullable(),
+    kioskMessage: z.string().trim().max(200).nullable(),
   })
   .partial()
   .strict();
@@ -216,8 +217,8 @@ export async function updateBranding(tx: Tx, ctx: Ctx, input: z.infer<typeof bra
   }
   const m = await tx.merchant.update({
     where: { id: ctx.merchantId },
-    data: input,
-    select: { primaryColor: true, logoUrl: true },
+    data: { ...input, kioskMessage: input.kioskMessage === undefined ? undefined : input.kioskMessage || null },
+    select: { primaryColor: true, logoUrl: true, kioskMessage: true },
   });
   await audit(tx, {
     merchantId: ctx.merchantId,
@@ -228,4 +229,107 @@ export async function updateBranding(tx: Tx, ctx: Ctx, input: z.infer<typeof bra
     metadata: { primaryColor: input.primaryColor, logoChanged: input.logoUrl !== undefined },
   });
   return m;
+}
+
+// ---------------------------------------------------------------------------
+// Ce que le programme rapporte (30 derniers jours)
+// ---------------------------------------------------------------------------
+
+/**
+ * Indicateurs factuels, sans prétendre à une causalité :
+ * - clients revenus après au moins `gapDays` jours d'absence, et leurs achats depuis ce retour ;
+ * - part des achats faite par les clients réguliers (au moins 2 passages sur la période) ;
+ * - passages pendant les heures creuses, bonus de fidélité distribués.
+ */
+export async function impact(tx: Tx, merchantId: string, now = new Date(), gapDays = 30) {
+  const since = new Date(now.getTime() - 30 * DAY);
+  const sinceIso = since.toISOString();
+  const [returning] = await tx.$queryRaw<{ customers: bigint; revenue: bigint | null }[]>`
+    WITH v AS (
+      SELECT customer_id, occurred_at, purchase_amount_cents,
+             LAG(occurred_at) OVER (PARTITION BY customer_id ORDER BY occurred_at) AS prev
+      FROM point_transactions WHERE merchant_id = ${merchantId}::uuid AND type = 'EARN'
+    ),
+    comeback AS (
+      SELECT customer_id, MIN(occurred_at) AS back_at FROM v
+      WHERE occurred_at >= (${sinceIso}::timestamptz AT TIME ZONE 'UTC')
+        AND prev IS NOT NULL AND occurred_at - prev >= make_interval(days => ${gapDays}::int)
+      GROUP BY customer_id
+    )
+    SELECT COUNT(DISTINCT c.customer_id) AS customers, SUM(v.purchase_amount_cents) AS revenue
+    FROM comeback c JOIN v ON v.customer_id = c.customer_id AND v.occurred_at >= c.back_at`;
+
+  const [regular] = await tx.$queryRaw<{ regulars: bigint; regular_revenue: bigint | null; total_revenue: bigint | null }[]>`
+    WITH p AS (
+      SELECT customer_id, COUNT(*) AS n, SUM(purchase_amount_cents) AS amount
+      FROM point_transactions
+      WHERE merchant_id = ${merchantId}::uuid AND type = 'EARN' AND occurred_at >= (${sinceIso}::timestamptz AT TIME ZONE 'UTC')
+      GROUP BY customer_id
+    )
+    SELECT COUNT(*) FILTER (WHERE n >= 2) AS regulars,
+           SUM(amount) FILTER (WHERE n >= 2) AS regular_revenue,
+           SUM(amount) AS total_revenue
+    FROM p`;
+
+  const [happyHourVisits, loyaltyBonuses] = await Promise.all([
+    tx.pointTransaction.count({ where: { merchantId, type: "HAPPY_HOUR_BONUS", occurredAt: { gte: since } } }),
+    tx.pointTransaction.count({ where: { merchantId, type: { in: ["VISIT_MILESTONE_BONUS", "STREAK_BONUS", "ANNIVERSARY_BONUS"] }, occurredAt: { gte: since } } }),
+  ]);
+
+  const total = Number(regular?.total_revenue ?? 0);
+  return {
+    returningCustomers: Number(returning?.customers ?? 0),
+    returningRevenueCents: Number(returning?.revenue ?? 0),
+    regularCustomers: Number(regular?.regulars ?? 0),
+    regularRevenueCents: Number(regular?.regular_revenue ?? 0),
+    regularShare: total > 0 ? Math.round((Number(regular?.regular_revenue ?? 0) / total) * 100) : 0,
+    happyHourVisits,
+    loyaltyBonuses,
+    gapDays,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Clients à relancer
+// ---------------------------------------------------------------------------
+
+/**
+ * Habitués (au moins 3 passages) absents depuis plus de deux fois leur rythme habituel,
+ * et au minimum 21 jours. Triés par importance (nombre de passages).
+ */
+export async function customersToWinBack(tx: Tx, merchantId: string, now = new Date(), limit = 30) {
+  const nowIso = now.toISOString();
+  const rows = await tx.$queryRaw<
+    { id: string; first_name: string | null; visits: bigint; last_visit: Date; avg_days: number; days_since: number; balance: bigint; display_hint: string | null }[]
+  >`
+    WITH v AS (
+      SELECT customer_id, COUNT(*) AS visits, MIN(occurred_at) AS first_visit, MAX(occurred_at) AS last_visit
+      FROM point_transactions WHERE merchant_id = ${merchantId}::uuid AND type = 'EARN'
+      GROUP BY customer_id HAVING COUNT(*) >= 3
+    ),
+    s AS (
+      SELECT v.*,
+             EXTRACT(EPOCH FROM (v.last_visit - v.first_visit)) / 86400.0 / (v.visits - 1) AS avg_days,
+             EXTRACT(EPOCH FROM ((${nowIso}::timestamptz AT TIME ZONE 'UTC') - v.last_visit)) / 86400.0 AS days_since
+      FROM v
+    )
+    SELECT c.id, c.first_name, s.visits, s.last_visit, s.avg_days::float8 AS avg_days, s.days_since::float8 AS days_since,
+           (SELECT COALESCE(SUM(points), 0) FROM point_transactions pt WHERE pt.customer_id = c.id) AS balance,
+           (SELECT display_hint FROM customer_identifiers ci WHERE ci.customer_id = c.id AND ci.type = 'PHONE' AND ci.revoked_at IS NULL LIMIT 1) AS display_hint
+    FROM s JOIN customers c ON c.id = s.customer_id
+    WHERE c.anonymized_at IS NULL AND s.days_since >= GREATEST(21, 2 * s.avg_days)
+    ORDER BY s.visits DESC, s.days_since DESC
+    LIMIT ${limit}`;
+  const consents = await marketingSms(tx, rows.map((r) => r.id));
+  return rows.map((r) => ({
+    id: r.id,
+    firstName: r.first_name,
+    maskedPhone: r.display_hint,
+    visits: Number(r.visits),
+    lastVisitAt: r.last_visit,
+    usualEveryDays: Math.max(1, Math.round(r.avg_days)),
+    daysSince: Math.floor(r.days_since),
+    balance: Number(r.balance),
+    marketingSms: consents.get(r.id) ?? false,
+  }));
 }

@@ -7,8 +7,14 @@ import { audit } from "../audit";
 import { addMonths } from "../time";
 import { BUSINESS_TIMEZONE } from "@/config/product";
 import { getRules } from "./rules";
+import { purchaseBonuses, type BonusLine } from "./engagement";
 
-const POSITIVE_EARN_TYPES = ["EARN", "TIER_BONUS", "WHEEL_BONUS"] as const;
+/** Mouvements positifs liés à l'activité du client (comptent pour les niveaux et le plafond quotidien). */
+export const POSITIVE_EARN_TYPES = [
+  "EARN", "TIER_BONUS", "WHEEL_BONUS", "HAPPY_HOUR_BONUS", "VISIT_MILESTONE_BONUS", "STREAK_BONUS", "ANNIVERSARY_BONUS",
+] as const;
+/** Bonus rattachés à un achat (affichés avec lui). */
+export const PURCHASE_BONUS_TYPES = ["TIER_BONUS", "HAPPY_HOUR_BONUS", "VISIT_MILESTONE_BONUS", "STREAK_BONUS", "ANNIVERSARY_BONUS"] as const;
 
 // ---------------------------------------------------------------------------
 // Calculs purs (testés unitairement)
@@ -54,7 +60,7 @@ export async function earnedToday(tx: Tx, customerId: string): Promise<number> {
   const rows = await tx.$queryRaw<{ total: bigint | null }[]>`
     SELECT SUM(points) AS total FROM point_transactions
     WHERE customer_id = ${customerId}::uuid
-      AND type IN ('EARN', 'TIER_BONUS', 'WHEEL_BONUS')
+      AND type IN ('EARN', 'TIER_BONUS', 'WHEEL_BONUS', 'HAPPY_HOUR_BONUS', 'VISIT_MILESTONE_BONUS', 'STREAK_BONUS', 'ANNIVERSARY_BONUS')
       AND (occurred_at AT TIME ZONE 'UTC' AT TIME ZONE ${BUSINESS_TIMEZONE})::date
         = (now() AT TIME ZONE ${BUSINESS_TIMEZONE})::date`;
   return Number(rows[0]?.total ?? 0);
@@ -114,6 +120,8 @@ export interface PurchaseResult {
   capped: boolean;
   balance: number;
   tier: { name: string; bonusPercent: number } | null;
+  /** Bonus de fidélité (heures creuses, Ne visite, régularité, anniversaire) hors bonus de niveau. */
+  bonuses: { type: BonusLine["type"]; points: number; detail: Record<string, number> }[];
   replayed: boolean;
 }
 
@@ -124,11 +132,13 @@ async function replayPurchase(tx: Tx, merchantId: string, key: string): Promise<
   });
   if (!prev) return null;
   const bonus = prev.derivedTransactions.filter((t) => t.type === "TIER_BONUS").reduce((s, t) => s + t.points, 0);
+  const others = prev.derivedTransactions.filter((t) => t.type !== "TIER_BONUS" && (PURCHASE_BONUS_TYPES as readonly string[]).includes(t.type));
   return {
     transactionId: prev.id,
     basePoints: prev.points,
     bonusPoints: bonus,
-    earned: prev.points + bonus,
+    earned: prev.points + bonus + others.reduce((s, t) => s + t.points, 0),
+    bonuses: others.map((t) => ({ type: t.type as BonusLine["type"], points: t.points, detail: {} })),
     capped: false,
     balance: await getBalance(tx, prev.customerId),
     tier: prev.customer.currentTier ? { name: prev.customer.currentTier.name, bonusPercent: prev.customer.currentTier.bonusPercent } : null,
@@ -161,10 +171,22 @@ export async function recordPurchase(tx: Tx, ctx: Ctx, input: PurchaseInput): Pr
   const tierBonusPct = rules.tiersEnabled ? (customer.currentTier?.bonusPercent ?? 0) : 0;
   const rawBonus = computeTierBonus(base, tierBonusPct);
 
-  const today = await earnedToday(tx, customer.id);
+  const extras = await purchaseBonuses(tx, rules, customer, base, occurredAt);
+
+  // Plafond quotidien appliqué dans l'ordre : base, niveau, puis bonus de fidélité
+  let today = await earnedToday(tx, customer.id);
   const capBase = applyDailyCap(base, today, rules.dailyPointsCap);
-  const capBonus = applyDailyCap(rawBonus, today + capBase.granted, rules.dailyPointsCap);
-  const capped = capBase.capped || capBonus.capped;
+  today += capBase.granted;
+  const capBonus = applyDailyCap(rawBonus, today, rules.dailyPointsCap);
+  today += capBonus.granted;
+  let capped = capBase.capped || capBonus.capped;
+  const grantedExtras: (BonusLine & { granted: number })[] = [];
+  for (const b of extras) {
+    const c = applyDailyCap(b.points, today, rules.dailyPointsCap);
+    today += c.granted;
+    capped ||= c.capped;
+    if (c.granted > 0) grantedExtras.push({ ...b, granted: c.granted });
+  }
 
   const common = {
     merchantId: ctx.merchantId,
@@ -188,6 +210,9 @@ export async function recordPurchase(tx: Tx, ctx: Ctx, input: PurchaseInput): Pr
       data: { ...common, type: "TIER_BONUS", points: capBonus.granted, relatedTransactionId: earnTx.id },
     });
   }
+  for (const b of grantedExtras) {
+    await tx.pointTransaction.create({ data: { ...common, type: b.type, points: b.granted, relatedTransactionId: earnTx.id } });
+  }
   if (capped) {
     await audit(tx, {
       merchantId: ctx.merchantId,
@@ -195,7 +220,11 @@ export async function recordPurchase(tx: Tx, ctx: Ctx, input: PurchaseInput): Pr
       action: "fraud.daily_cap_reached",
       entityType: "customer",
       entityId: customer.id,
-      metadata: { requested: base + rawBonus, granted: capBase.granted + capBonus.granted, cap: rules.dailyPointsCap },
+      metadata: {
+        requested: base + rawBonus + extras.reduce((s, b) => s + b.points, 0),
+        granted: capBase.granted + capBonus.granted + grantedExtras.reduce((s, b) => s + b.granted, 0),
+        cap: rules.dailyPointsCap,
+      },
     });
   }
 
@@ -213,7 +242,8 @@ export async function recordPurchase(tx: Tx, ctx: Ctx, input: PurchaseInput): Pr
     transactionId: earnTx.id,
     basePoints: capBase.granted,
     bonusPoints: capBonus.granted,
-    earned: capBase.granted + capBonus.granted,
+    earned: capBase.granted + capBonus.granted + grantedExtras.reduce((s, b) => s + b.granted, 0),
+    bonuses: grantedExtras.map((b) => ({ type: b.type, points: b.granted, detail: b.detail })),
     capped,
     balance: await getBalance(tx, customer.id),
     tier: tier ? { name: tier.name, bonusPercent: tier.bonusPercent } : null,

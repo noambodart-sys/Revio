@@ -20,6 +20,7 @@ import {
   type EnrollInput,
 } from "./customers";
 import { hasSpunToday } from "./wheel";
+import { PURCHASE_BONUS_TYPES } from "./points";
 
 const ttl = () => addSeconds(new Date(), TECH.kioskSessionTtlSeconds);
 const OPEN = ["AWAITING_AUTH", "IDENTIFIED"] as const;
@@ -150,8 +151,12 @@ export async function kioskSessionView(tx: Tx, ctx: Ctx, sessionId: string) {
   let purchase = null;
   let wheel = null;
   if (s.status === "COMPLETED") {
-    const txs = await tx.pointTransaction.findMany({ where: { kioskSessionId: s.id, type: { in: ["EARN", "TIER_BONUS"] } } });
-    purchase = { earned: txs.reduce((a, t) => a + t.points, 0), bonus: txs.filter((t) => t.type === "TIER_BONUS").reduce((a, t) => a + t.points, 0) };
+    const txs = await tx.pointTransaction.findMany({ where: { kioskSessionId: s.id, type: { in: ["EARN", ...PURCHASE_BONUS_TYPES] } } });
+    purchase = {
+      earned: txs.reduce((a, t) => a + t.points, 0),
+      bonus: txs.filter((t) => t.type === "TIER_BONUS").reduce((a, t) => a + t.points, 0),
+      bonuses: txs.filter((t) => t.type !== "EARN" && t.type !== "TIER_BONUS").map((t) => ({ type: t.type, points: t.points })),
+    };
     const rules = await getRules(tx, ctx.merchantId);
     if (rules.wheelEnabled) {
       const spin = await hasSpunToday(tx, ctx.merchantId, s.customer.id);

@@ -6,6 +6,7 @@ import { conflict, notFound } from "../errors";
 import { addMonths } from "../time";
 import { initMerchantDefaults } from "./rules";
 import { createUser } from "./auth";
+import { applyTemplate } from "./templates";
 
 export const createMerchantSchema = z.object({
   name: z.string().trim().min(2).max(100),
@@ -15,6 +16,7 @@ export const createMerchantSchema = z.object({
   postalCode: z.string().trim().max(10).nullish(),
   city: z.string().trim().max(60).nullish(),
   plan: z.enum(["ESSENTIEL", "PRO"]).default("ESSENTIEL"),
+  businessType: z.string().max(40).nullish(),
   owner: z.object({
     email: z.string().email(),
     displayName: z.string().trim().min(1).max(60),
@@ -27,10 +29,11 @@ export async function createMerchant(actor: Actor, input: z.infer<typeof createM
   const db = systemDb();
   if (await db.merchant.findUnique({ where: { slug: input.slug } })) throw conflict("SLUG_TAKEN", "Cet identifiant est déjà pris");
   if (await db.user.findUnique({ where: { email: input.owner.email.toLowerCase() } })) throw conflict("EMAIL_TAKEN", "Cet e-mail est déjà utilisé");
-  const { owner, ...m } = input;
+  const { owner, businessType, ...m } = input;
   const merchant = await db.$transaction(async (tx) => {
     const created = await tx.merchant.create({ data: { ...m, trialEndsAt: addMonths(new Date(), 1) } });
     await initMerchantDefaults(tx, created.id);
+    if (businessType) await applyTemplate(tx, { merchantId: created.id, actor }, businessType);
     await audit(tx, { merchantId: created.id, actor, action: "merchant.create", entityType: "merchant", entityId: created.id });
     return created;
   });
