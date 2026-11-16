@@ -22,7 +22,7 @@ let customerB: string;
 const TENANT_TABLES = [
   "users", "devices", "customers", "customer_identifiers", "phone_verifications", "consents", "rules",
   "tier_levels", "rewards", "redemptions", "wheel_prizes", "wheel_spins", "point_transactions",
-  "kiosk_sessions", "audit_log", "data_requests", "bonus_periods",
+  "kiosk_sessions", "audit_log", "data_requests", "bonus_periods", "campaigns", "campaign_recipients",
 ];
 
 async function populate(m: M, phone: string) {
@@ -36,6 +36,8 @@ async function populate(m: M, phone: string) {
     await tx.wheelPrize.create({ data: { merchantId: m.merchant.id, label: "x", type: "NOTHING", weight: 1 } });
     await tx.wheelSpin.create({ data: { merchantId: m.merchant.id, customerId: c.id, spinDate: new Date("2026-01-01"), prizeLabel: "x" } });
     await createDataRequest(tx, m.staffCtx, { customerId: c.id, type: "ACCESS" });
+    const camp = await tx.campaign.create({ data: { merchantId: m.merchant.id, segmentKey: "all", message: "test", status: "SENT" } });
+    await tx.campaignRecipient.create({ data: { merchantId: m.merchant.id, campaignId: camp.id, customerId: c.id, status: "SENT", sentAt: new Date() } });
     await tx.bonusPeriod.create({ data: { merchantId: m.merchant.id, dayOfWeek: 2, startMinute: 840, endMinute: 960, multiplierPercent: 200 } });
     await audit(tx, { merchantId: m.merchant.id, actor: m.staffCtx.actor, action: "test", entityType: "test" });
     return c.id;

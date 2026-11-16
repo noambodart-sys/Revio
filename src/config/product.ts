@@ -23,3 +23,15 @@ export const TECH = {
   pairingCodeTtlMinutes: 30,
   unverifiedCustomerTtlHours: 24,
 } as const;
+
+/** Envoi des SMS d'offres (campagnes). */
+export const SMS_MARKETING = {
+  /** Plage d'envoi autorisée, heure locale du commerce (bonne pratique : jamais tôt, tard ou le dimanche). */
+  sendWindow: { startHour: 9, endHour: 20, sunday: false },
+  /** Mention de désinscription ajoutée à chaque SMS d'offre. */
+  optOutMention: "STOP SMS: repondez STOP",
+  /** Estimation affichée au commerçant (à aligner sur le tarif réel du fournisseur). */
+  estimatedCostCentsPerSms: 8,
+  /** Nombre maximum de parties de 160 caractères par message. */
+  maxParts: 2,
+} as const;

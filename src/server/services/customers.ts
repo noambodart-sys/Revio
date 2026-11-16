@@ -11,6 +11,7 @@ import { getBalance } from "./points";
 import { recordConsent } from "./consents";
 import { getRules } from "./rules";
 import { engagementSummary } from "./engagement";
+import { activeOffers } from "./campaigns";
 
 export const phoneLookup = (e164: string) => lookupHash("PHONE", e164);
 
@@ -32,12 +33,13 @@ export async function customerSummary(tx: Tx, customerId: string) {
   const c = await tx.customer.findUnique({ where: { id: customerId }, include: { currentTier: true } });
   if (!c || c.anonymizedAt) throw notFound("Client");
   const rules = await getRules(tx, c.merchantId);
-  const [balance, ident, rewards, tiers, engagement] = await Promise.all([
+  const [balance, ident, rewards, tiers, engagement, offers] = await Promise.all([
     getBalance(tx, c.id),
     getPhoneIdentifier(tx, c.id),
     tx.reward.findMany({ where: { merchantId: c.merchantId, active: true }, orderBy: { pointsCost: "asc" } }),
     tx.tierLevel.findMany({ where: { merchantId: c.merchantId }, orderBy: { rank: "asc" } }),
     engagementSummary(tx, rules, c.id),
+    activeOffers(tx, c.id),
   ]);
   const available = rewards.filter((r) => r.pointsCost <= balance && (r.stock === null || r.stock > 0));
   const next = rewards.find((r) => r.pointsCost > balance) ?? null;
@@ -49,6 +51,7 @@ export async function customerSummary(tx: Tx, customerId: string) {
     balance,
     tier: rules.tiersEnabled && c.currentTier ? { name: c.currentTier.name, bonusPercent: c.currentTier.bonusPercent } : null,
     engagement,
+    offers,
     nextTier: rules.tiersEnabled && nextTier ? { name: nextTier.name, minPoints: nextTier.minPoints } : null,
     availableRewards: available.map((r) => ({ id: r.id, name: r.name, pointsCost: r.pointsCost })),
     nextReward: next ? { id: next.id, name: next.name, pointsCost: next.pointsCost, missing: next.pointsCost - balance } : null,

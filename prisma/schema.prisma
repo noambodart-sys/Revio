@@ -121,6 +121,18 @@ enum DataRequestStatus {
   REJECTED
 }
 
+enum CampaignStatus {
+  SENDING
+  SENT
+  CANCELED
+}
+
+enum RecipientStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
 enum ActorType {
   USER
   DEVICE
@@ -175,6 +187,8 @@ model Merchant {
   rewards             Reward[]
   wheelPrizes         WheelPrize[]
   bonusPeriods        BonusPeriod[]
+  campaigns           Campaign[]
+  campaignRecipients  CampaignRecipient[]
   wheelSpins          WheelSpin[]
   pointTransactions   PointTransaction[]
   redemptions         Redemption[]
@@ -287,6 +301,7 @@ model Customer {
   wheelSpins        WheelSpin[]
   kioskSessions     KioskSession[]
   dataRequests      DataRequest[]
+  campaignReceipts  CampaignRecipient[]
 
   @@index([merchantId, lastVisitAt])
   @@map("customers")
@@ -424,6 +439,9 @@ model Rules {
   streakWeeks          Int? @map("streak_weeks") // ex. 4 → bonus après 4 semaines d'affilée avec au moins une visite
   streakPoints         Int  @default(0) @map("streak_points")
   anniversaryPoints    Int? @map("anniversary_points") // cadeau à la première visite après chaque anniversaire d'inscription
+
+  // Marketing : nombre maximum de SMS d'offres par client sur 30 jours glissants
+  smsMaxPerMonth Int @default(2) @map("sms_max_per_month")
 
   updatedAt   DateTime @updatedAt @map("updated_at")
   updatedById String?  @map("updated_by_id") @db.Uuid
@@ -610,6 +628,50 @@ model KioskSession {
 
   @@index([merchantId, status, expiresAt])
   @@map("kiosk_sessions")
+}
+
+// ----------------------------------------------------------------------------
+// Campagnes SMS (envoyées par la plateforme : le commerçant ne manipule jamais les numéros)
+// ----------------------------------------------------------------------------
+
+model Campaign {
+  id              String         @id @default(uuid()) @db.Uuid
+  merchantId      String         @map("merchant_id") @db.Uuid
+  merchant        Merchant       @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  segmentKey      String         @map("segment_key") // groupe ciblé (services/segments.ts)
+  templateKey     String?        @map("template_key")
+  message         String // texte avec variables par destinataire ({prenom}, {points}…)
+  offerTitle      String?        @map("offer_title") // offre affichée au comptoir (tablette + caisse)
+  offerValidUntil DateTime?      @map("offer_valid_until")
+  status          CampaignStatus @default(SENDING)
+  recipientsCount Int            @default(0) @map("recipients_count")
+  sentAt          DateTime?      @map("sent_at")
+  createdById     String?        @map("created_by_id") @db.Uuid
+  createdAt       DateTime       @default(now()) @map("created_at")
+
+  recipients CampaignRecipient[]
+
+  @@index([merchantId, createdAt])
+  @@map("campaigns")
+}
+
+model CampaignRecipient {
+  id           String          @id @default(uuid()) @db.Uuid
+  merchantId   String          @map("merchant_id") @db.Uuid
+  merchant     Merchant        @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  campaignId   String          @map("campaign_id") @db.Uuid
+  campaign     Campaign        @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  customerId   String          @map("customer_id") @db.Uuid
+  customer     Customer        @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  status       RecipientStatus @default(PENDING)
+  sentAt       DateTime?       @map("sent_at")
+  error        String?
+  redeemedAt   DateTime?       @map("redeemed_at") // offre utilisée au comptoir
+  redeemedById String?         @map("redeemed_by_id") @db.Uuid
+
+  @@unique([campaignId, customerId])
+  @@index([merchantId, customerId, sentAt])
+  @@map("campaign_recipients")
 }
 
 // ----------------------------------------------------------------------------
