@@ -29,6 +29,7 @@ interface CustomerView {
   nextTier: { name: string; minPoints: number } | null;
   availableRewards: { id: string; name: string; pointsCost: number }[];
   nextReward: { name: string; pointsCost: number; missing: number } | null;
+  offers: { id: string; title: string }[];
   engagement: {
     visits: number;
     streakWeeks: number;
@@ -569,6 +570,9 @@ export default function KioskPage() {
           </div>
           <div className="animate-fade-in space-y-5 text-center landscape:md:text-left">
             <h1 className="text-5xl font-black tracking-tight">Bonjour{c.firstName ? ` ${c.firstName}` : ""} !</h1>
+            {c.offers.map((o) => (
+              <div key={o.id} className="animate-pop rounded-2xl bg-amber-400 px-5 py-4 text-2xl font-bold text-slate-900 shadow-lg">🎁 Votre offre : {o.title}</div>
+            ))}
             {c.availableRewards.length > 0 ? (
               <div className="rounded-2xl bg-emerald-50 px-5 py-4 text-xl text-emerald-900 ring-1 ring-emerald-100">
                 🎁 Vous pouvez obtenir : <strong>{c.availableRewards.map((r) => r.name).join(", ")}</strong>. Demandez au vendeur !

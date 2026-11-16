@@ -62,6 +62,7 @@ export default function GestionPage() {
           <span className="rounded-full bg-white/15 px-3 py-0.5 text-sm">Offre {PLAN_LABEL[settings.merchant.plan]}</span>
         </div>
         <div className="flex items-center gap-4 text-sm">
+          <Link href="/app" className="rounded-lg bg-white/15 px-3 py-1.5 font-semibold">📱 Appli téléphone</Link>
           <Link href="/caisse" className="rounded-lg bg-white px-3 py-1.5 font-semibold text-slate-900">Ouvrir la caisse</Link>
           <span>{me.displayName}</span>
           <button className="underline" onClick={signOut}>Déconnexion</button>

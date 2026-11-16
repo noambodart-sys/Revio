@@ -52,7 +52,7 @@ export function recipientVariables(c: Pick<CustomerRow, "firstName" | "balance" 
     commerce: merchantName,
     points: c.balance,
     points_manquants: c.nextReward?.missing ?? "",
-    recompense: c.nextReward?.name ?? "prochaine recompense",
+    recompense: c.nextReward?.name ?? "prochaine récompense",
   };
 }
 
@@ -81,7 +81,7 @@ export async function previewCampaign(tx: Tx, merchantId: string, input: Campaig
     segmentMembers(tx, merchantId, input.segmentKey as never, now),
   ]);
   const ok = members.filter((m) => reachable(m, rules.smsMaxPerMonth));
-  const sampleCustomer = ok[0] ?? members[0] ?? { firstName: "Léa", balance: 120, nextReward: { name: "Café offert", pointsCost: 150, missing: 30 } };
+  const sampleCustomer = ok.find((m) => m.firstName) ?? ok[0] ?? members[0] ?? { firstName: "Léa", balance: 120, nextReward: { name: "Café offert", pointsCost: 150, missing: 30 } };
   // Le plus long message réel détermine le nombre de SMS facturés
   const texts = (ok.length ? ok : [sampleCustomer]).map((c) => finalText(fillVariables(body, recipientVariables(c, merchant.name))));
   const longest = texts.reduce((a, b) => (smsInfo(b).length > smsInfo(a).length ? b : a), texts[0]);

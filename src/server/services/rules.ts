@@ -59,6 +59,7 @@ export const rulesPatchSchema = z
     streakWeeks: z.number().int().min(2).max(52).nullable(),
     streakPoints: z.number().int().min(0).max(100_000),
     anniversaryPoints: z.number().int().positive().max(100_000).nullable(),
+    smsMaxPerMonth: z.number().int().min(1).max(8),
   })
   .partial()
   .strict();

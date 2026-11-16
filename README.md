@@ -19,6 +19,7 @@ npm run dev
 - Tablette : http://localhost:3000/kiosque (saisir le code d'appairage). En dev, les SMS sont
   affichés dans la console du serveur.
 - Caisse : http://localhost:3000/caisse (`vendeur@demo.local` / `demo-vendeur-2026`)
+- Appli du commerçant, sur téléphone : http://localhost:3000/app (`proprio@demo.local`)
 - Back-office du commerçant : http://localhost:3000/gestion (`proprio@demo.local` / `demo-proprio-2026`)
 - Admin : http://localhost:3000/admin (`admin@revio.local` / `admin-revio-dev-2026` + code 2FA :
   ajouter le secret affiché par le seed dans une app d'authentification)

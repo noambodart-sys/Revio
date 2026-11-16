@@ -20,7 +20,8 @@ function LoginForm() {
     try {
       const r = await api<{ role: string }>("/api/v1/auth/login", { body: { email, password, totp: totp || null } });
       const next = params.get("next");
-      window.location.href = next && next.startsWith("/") && !next.startsWith("//") ? next : r.role === "REVIO_ADMIN" ? "/admin" : "/caisse";
+      const home = r.role === "REVIO_ADMIN" ? "/admin" : r.role === "OWNER" && window.innerWidth < 768 ? "/app" : "/caisse";
+      window.location.href = next && next.startsWith("/") && !next.startsWith("//") ? next : home;
     } catch (err) {
       if (err instanceof ApiError && err.code === "TOTP_REQUIRED") setNeedTotp(true);
       setError(errorMessage(err));

@@ -24,6 +24,7 @@ interface ActiveSession {
   customer: Summary;
 }
 interface Detail extends Summary {
+  offers: { id: string; title: string; validUntil: string }[];
   wheelToday: { label: string; isReward: boolean } | null;
   consents: Record<string, boolean>;
   history: { id: string; type: string; points: number; purchaseAmountCents: number | null; reason: string | null; occurredAt: string; staff: string | null }[];
@@ -258,6 +259,16 @@ export default function CaissePage() {
                     <div className="text-slate-500">points{detail.tier ? ` · ${detail.tier.name}` : ""}</div>
                   </div>
                 </div>
+                {detail.offers.map((o) => (
+                  <div key={o.id} className="flex items-center justify-between gap-3 rounded-xl bg-amber-100 px-4 py-3 text-amber-900">
+                    <span className="font-semibold">🎁 Offre reçue par SMS : {o.title}</span>
+                    <button className="btn-dark px-4 py-2" disabled={busy} onClick={() => act(async () => {
+                      await api(`/api/v1/pos/offers/${o.id}/redeem`, { body: {} });
+                      flash("ok", `Offre « ${o.title} » appliquée`);
+                      await loadDetail(detail.id);
+                    })}>Appliquer</button>
+                  </div>
+                ))}
                 {detail.wheelToday?.isReward && (
                   <div className="rounded-lg bg-amber-100 px-3 py-2 font-medium text-amber-900">🎡 Lot gagné à la roue aujourd&apos;hui : {detail.wheelToday.label} — à remettre au client</div>
                 )}

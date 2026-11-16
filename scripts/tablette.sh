@@ -119,7 +119,12 @@ echo
 bold "2) CAISSE — sur ce Mac ou ton téléphone : $URL/caisse"
 echo "   vendeur@demo.local / demo-vendeur-2026     (propriétaire : proprio@demo.local / demo-proprio-2026)"
 echo
-bold "3) GESTION (back-office du commerçant) — $URL/gestion"
+bold "3) APPLI DU COMMERÇANT (téléphone) — scanne avec ton téléphone :"
+node -e 'require("qrcode-terminal").generate(process.argv[1], { small: true })' "$URL/app" 2>/dev/null || true
+echo "   ou tape : $URL/app   (proprio@demo.local / demo-proprio-2026)"
+echo "   Installer : Safari › Partager › « Sur l'écran d'accueil »"
+echo
+bold "   GESTION complète (ordinateur) — $URL/gestion"
 echo "   proprio@demo.local / demo-proprio-2026"
 echo
 bold "4) ADMIN — $URL/admin"

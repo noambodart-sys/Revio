@@ -50,12 +50,29 @@
       dans `/gestion`, choix du métier à la création dans `/admin`
 - [x] 99 tests Vitest + parcours navigateur (vitrine incluse)
 
+### Appli du commerçant, version web (16/11/2026)
+
+- [x] `/app`, pensée pour le téléphone et installable sur l'écran d'accueil : Aujourd'hui (chiffres du
+      jour, suggestions), Clients (groupes prêts à l'emploi, fiche), Offre (assistant en 3 étapes),
+      Résultats (clients venus dans les 7 jours, achats, offres utilisées)
+- [x] Groupes : habitués, pas vus depuis 1 mois, nouveaux, meilleurs clients, proches d'une
+      récompense, anniversaire de fidélité
+- [x] 7 modèles de SMS + message libre, personnalisés (prénom, points, récompense), longueur calculée
+- [x] Garde-fous : consentement marketing, limite de SMS par client et par mois (réglable),
+      9 h – 20 h hors dimanche, mention STOP, numéros jamais montrés, audit
+- [x] Offre reçue par SMS affichée sur la tablette et en caisse, appliquée en un clic
+- [x] Suggestions du jour par règles simples (sans IA)
+- [x] 117 tests + parcours navigateur `tests/e2e/appli.mjs`
+- [ ] IA (rédaction des messages, suggestions) : nécessite une clé Anthropic
+- [ ] Envoi réel (Brevo) et gestion des réponses STOP entrantes (webhook du fournisseur)
+- [ ] Envoi programmé (aujourd'hui : envoi immédiat dans la plage horaire)
+- [ ] Appli native (Expo) une fois le parcours validé par des commerçants
+
 ### Idées en attente (à valider avec des commerçants)
 
 - [ ] Cagnotte solidaire pour une association du quartier (affichée sur la tablette)
 - [ ] Défi collectif du quartier (« 1 000 passages en décembre = cadeau pour tous »)
 - [ ] Passeport du quartier entre commerces voisins (offre Quartier, V2)
-- [ ] SMS « Vous nous manquez » en un clic (nécessite Brevo ; consentement marketing requis)
 - [ ] « Ma carte » : page personnelle du client par lien SMS (solde, historique, suppression)
 
 ### Reste à faire pour clore la Phase 1

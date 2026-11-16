@@ -85,6 +85,7 @@ try {
   const submit = kiosk.getByRole("button", { name: "Recevoir mon code par SMS" });
   if (await submit.isEnabled()) throw new Error("Le bouton devrait être désactivé sans CGU");
   await kiosk.getByText("J'ai 16 ans ou plus").click();
+  await kiosk.getByText("J'accepte de recevoir des offres par SMS").click();
   await kiosk.locator("label", { hasText: "conditions du programme" }).locator("input").check();
   await shot(kiosk, "03-kiosque-inscription");
   await submit.click();

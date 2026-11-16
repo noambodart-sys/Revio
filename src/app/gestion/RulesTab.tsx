@@ -26,6 +26,7 @@ export function RulesTab({ settings, flash, onSaved }: { settings: Settings; fla
     dailyPointsCap: r.dailyPointsCap === null ? "" : String(r.dailyPointsCap),
     adjustmentAlertDailyCount: String(r.adjustmentAlertDailyCount),
     kioskResetSeconds: String(r.kioskResetSeconds),
+    smsMaxPerMonth: String(r.smsMaxPerMonth),
   });
   const [busy, setBusy] = useState(false);
   const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setF({ ...f, [k]: e.target.value });
@@ -50,6 +51,7 @@ export function RulesTab({ settings, flash, onSaved }: { settings: Settings; fla
           dailyPointsCap: f.dailyPointsCap === "" ? null : Number(f.dailyPointsCap),
           adjustmentAlertDailyCount: Number(f.adjustmentAlertDailyCount),
           kioskResetSeconds: Number(f.kioskResetSeconds),
+          smsMaxPerMonth: Number(f.smsMaxPerMonth),
         },
       });
       flash(true, "Règles enregistrées");
@@ -120,6 +122,7 @@ export function RulesTab({ settings, flash, onSaved }: { settings: Settings; fla
         <div className="grid gap-4 sm:grid-cols-2">
           {num("dailyPointsCap", "Maximum de points par client et par jour", "Vide = pas de plafond. Au-delà, les points ne sont pas crédités et une alerte est créée.")}
           {num("adjustmentAlertDailyCount", "Alerte après N corrections par vendeur et par jour", "Les corrections manuelles restent possibles, mais vous êtes alerté.")}
+          {num("smsMaxPerMonth", "SMS d'offres maximum par client et par mois", "Entre 1 et 8. Au-delà, le client n'est plus contacté jusqu'au mois suivant.")}
         </div>
       </section>
 

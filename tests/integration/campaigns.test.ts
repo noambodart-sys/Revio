@@ -41,7 +41,7 @@ describe("campagnes SMS", () => {
   it("aperçu : seuls les clients d'accord sont comptés, message personnalisé, coût", async () => {
     const p = await M1.tenant((tx) => previewCampaign(tx, M1.merchant.id, promo, TUESDAY));
     expect(p).toMatchObject({ members: 3, recipients: 2, excluded: { noConsent: 1, monthlyLimit: 0 }, offerTitle: "-20 % sur les croissants" });
-    expect(p.sample).toMatch(/^Bonjour Léa ! -20 % sur les croissants ce week-end chez Boulangerie \d+\. A tres vite ! STOP SMS: repondez STOP$/);
+    expect(p.sample).toMatch(/^Bonjour Léa ! -20 % sur les croissants ce week-end chez Boulangerie \d+\. On vous attend ! STOP SMS : répondez STOP$/);
     expect(p.info).toMatchObject({ encoding: "GSM", parts: 1 });
     expect(p.costCents).toBe(16);
     expect(p.window.open).toBe(true);
@@ -57,7 +57,7 @@ describe("campagnes SMS", () => {
     expect(r).toMatchObject({ sent: 2, failed: 0 });
     expect(smsBox.sent.map((s) => s.to).sort()).toEqual([`+32${yes1.phone.slice(1)}`, `+32${yes2.phone.slice(1)}`].sort());
     expect(smsBox.sent.some((s) => s.text.startsWith("Bonjour ! -20 %"))).toBe(true);
-    expect(smsBox.sent.every((s) => s.text.endsWith("STOP SMS: repondez STOP"))).toBe(true);
+    expect(smsBox.sent.every((s) => s.text.endsWith("STOP SMS : répondez STOP"))).toBe(true);
     expect(await systemDb().auditLog.count({ where: { action: "campaign.send", merchantId: M1.merchant.id } })).toBe(1);
   });
 

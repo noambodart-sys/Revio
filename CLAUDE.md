@@ -37,9 +37,13 @@ Référence fonctionnelle : `docs/architecture.md`. Avancement : `PROGRESS.md` (
 6. **Offres.** Ce que chaque offre inclut est défini dans `src/config/plans.ts`. La roue et les niveaux
    ne s'appliquent que via `getRules()` (règles *effectives*, filtrées par l'offre) ; `getStoredRules()`
    ne sert qu'à l'écran de réglages.
-7. **Interface en français**, pensée pour le tactile (grandes cibles, pavé numérique).
+7. **SMS d'offres (campagnes).** Envoyés uniquement par la plateforme, jamais d'export de numéros.
+   Destinataires = clients avec consentement `MARKETING_SMS` à jour, sous la limite `sms_max_per_month`.
+   Mention STOP, plage horaire et coût estimé dans `SMS_MARKETING` (`src/config/product.ts`).
+   Modèles de messages : `src/config/message-templates.ts` (éviter ê ô î ç â et les emojis : 70 car./SMS).
+8. **Interface en français**, pensée pour le tactile (grandes cibles, pavé numérique).
    Le nom du produit vient de `PRODUCT_NAME` uniquement.
-8. **Échecs qui doivent être comptés** (PIN, code SMS) : le service renvoie un résultat au lieu de
+9. **Échecs qui doivent être comptés** (PIN, code SMS) : le service renvoie un résultat au lieu de
    lever une exception, sinon la transaction annule l'incrément du compteur.
 
 ## Commandes
@@ -59,7 +63,10 @@ npm run tablette:qr       # réaffiche le QR code + nouveau code d'appairage (se
 
 Tests navigateur : `tests/e2e/parcours.mjs` puis `tests/e2e/gestion.mjs` (voir leur en-tête).
 
-Écrans : `/kiosque` (tablette), `/caisse` (vendeur), `/gestion` (propriétaire), `/admin` (équipe).
+Tests navigateur de l'appli : `tests/e2e/appli.mjs` (après `parcours.mjs`).
+
+Écrans : `/kiosque` (tablette), `/caisse` (vendeur), `/app` (appli du propriétaire sur téléphone),
+`/gestion` (back-office complet), `/admin` (équipe).
 
 ## Repères
 

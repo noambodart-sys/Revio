@@ -25,7 +25,7 @@ describe("longueur des SMS", () => {
 describe("modèles de messages", () => {
   it("remplit les champs et prépare l'offre du comptoir", () => {
     const m = buildMessage({ segmentKey: "all", templateKey: "promo", fields: { remise: "-20 %", produit: "les croissants", quand: "ce week-end" }, withOffer: true });
-    expect(m.body).toBe("Bonjour {prenom} ! -20 % sur les croissants ce week-end chez {commerce}. A tres vite !");
+    expect(m.body).toBe("Bonjour {prenom} ! -20 % sur les croissants ce week-end chez {commerce}. On vous attend !");
     expect(m.offerTitle).toBe("-20 % sur les croissants");
   });
   it("champ manquant ou message libre vide : refusé", () => {

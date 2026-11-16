@@ -21,6 +21,7 @@ export interface RulesDto {
   streakWeeks: number | null;
   streakPoints: number;
   anniversaryPoints: number | null;
+  smsMaxPerMonth: number;
 }
 
 export interface BonusPeriod { dayOfWeek: number; startMinute: number; endMinute: number; multiplierPercent: number }

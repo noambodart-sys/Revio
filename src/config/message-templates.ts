@@ -1,8 +1,8 @@
 /**
  * Modèles de SMS d'offres. Le commerçant remplit 1 à 3 champs ; les variables
  * entre accolades propres à chaque client ({prenom}, {points}…) sont remplies à l'envoi.
- * Textes sans emoji ni lettres hors alphabet SMS (ç, ê…) quand c'est possible : un SMS
- * reste ainsi à 160 caractères au lieu de 70.
+ * Textes sans emoji ni lettres hors alphabet SMS (ê, ô, î, ç, â) : un SMS reste ainsi
+ * à 160 caractères au lieu de 70. Les accents é, è, à, ù font partie de l'alphabet SMS.
  */
 export interface MessageTemplate {
   key: string;
@@ -28,7 +28,7 @@ export const MESSAGE_TEMPLATES: MessageTemplate[] = [
       { key: "produit", label: "Sur quoi ?", placeholder: "les croissants" },
       { key: "quand", label: "Quand ?", placeholder: "ce week-end" },
     ],
-    text: "Bonjour {prenom} ! {remise} sur {produit} {quand} chez {commerce}. A tres vite !",
+    text: "Bonjour {prenom} ! {remise} sur {produit} {quand} chez {commerce}. On vous attend !",
     offer: "{remise} sur {produit}",
     offerDays: 7,
     suggestedSegment: "regulars",
@@ -38,8 +38,8 @@ export const MESSAGE_TEMPLATES: MessageTemplate[] = [
     icon: "💌",
     label: "Vous nous manquez",
     hint: "Faire revenir les clients qu'on ne voit plus",
-    fields: [{ key: "cadeau", label: "Le petit cadeau", placeholder: "un cafe offert" }],
-    text: "Bonjour {prenom}, cela fait longtemps ! Pour votre retour chez {commerce}, {cadeau} vous attend. A bientot !",
+    fields: [{ key: "cadeau", label: "Le petit cadeau", placeholder: "un café offert" }],
+    text: "Bonjour {prenom}, cela fait longtemps ! Pour votre retour chez {commerce}, {cadeau} vous attend.",
     offer: "{cadeau}",
     offerDays: 14,
     suggestedSegment: "lapsed",
@@ -50,7 +50,7 @@ export const MESSAGE_TEMPLATES: MessageTemplate[] = [
     label: "Une nouveauté",
     hint: "Annoncer un nouveau produit ou service",
     fields: [{ key: "nouveaute", label: "La nouveauté", placeholder: "notre pain aux noix" }],
-    text: "Nouveau chez {commerce} : {nouveaute} ! Venez le decouvrir {prenom}, on vous attend.",
+    text: "Nouveau chez {commerce} : {nouveaute} ! Venez le découvrir {prenom}, on vous attend.",
     offer: null,
     offerDays: 7,
     suggestedSegment: "all",
@@ -61,8 +61,8 @@ export const MESSAGE_TEMPLATES: MessageTemplate[] = [
     label: "Un événement",
     hint: "Dégustation, fermeture, horaires spéciaux…",
     fields: [
-      { key: "evenement", label: "L'événement", placeholder: "degustation de fromages" },
-      { key: "date", label: "Quand ?", placeholder: "samedi de 10 h a 13 h" },
+      { key: "evenement", label: "L'événement", placeholder: "dégustation de fromages" },
+      { key: "date", label: "Quand ?", placeholder: "samedi de 10 h à 13 h" },
     ],
     text: "{prenom}, {commerce} vous invite : {evenement} {date}. Au plaisir de vous voir !",
     offer: null,
@@ -74,8 +74,8 @@ export const MESSAGE_TEMPLATES: MessageTemplate[] = [
     icon: "⚡",
     label: "Points doublés",
     hint: "Attirer du monde sur un moment calme",
-    fields: [{ key: "quand", label: "Quand ?", placeholder: "mardi apres-midi" }],
-    text: "{prenom}, vos points comptent double {quand} chez {commerce} ! Vous avez deja {points} points.",
+    fields: [{ key: "quand", label: "Quand ?", placeholder: "mardi après-midi" }],
+    text: "{prenom}, vos points comptent double {quand} chez {commerce} ! Vous avez déjà {points} points.",
     offer: null,
     offerDays: 7,
     suggestedSegment: "regulars",
@@ -86,7 +86,7 @@ export const MESSAGE_TEMPLATES: MessageTemplate[] = [
     label: "Récompense toute proche",
     hint: "Prévenir ceux à qui il manque peu de points",
     fields: [],
-    text: "{prenom}, plus que {points_manquants} points pour votre {recompense} chez {commerce} ! A bientot.",
+    text: "{prenom}, plus que {points_manquants} points pour votre {recompense} chez {commerce} ! On vous attend.",
     offer: null,
     offerDays: 7,
     suggestedSegment: "nearReward",
@@ -97,7 +97,7 @@ export const MESSAGE_TEMPLATES: MessageTemplate[] = [
     label: "Anniversaire de fidélité",
     hint: "Remercier ceux qui sont là depuis un an ou plus",
     fields: [{ key: "cadeau", label: "Le cadeau", placeholder: "une viennoiserie offerte" }],
-    text: "Joyeux anniversaire de fidelite {prenom} ! Merci d'etre avec nous. Pour l'occasion, {cadeau} vous attend chez {commerce}.",
+    text: "Joyeux anniversaire de fidélité {prenom} ! Pour vous remercier, {cadeau} vous attend chez {commerce}.",
     offer: "{cadeau}",
     offerDays: 30,
     suggestedSegment: "anniversary",
