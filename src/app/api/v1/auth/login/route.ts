@@ -15,7 +15,7 @@ export const POST = route(async (req) => {
     secure: env().NODE_ENV === "production",
     sameSite: "strict",
     path: "/",
-    expires: expiresAt,
+    expires: new Date(Math.max(expiresAt.getTime(), Date.now() + 30 * 24 * 3600_000)),
   });
   return res;
 });

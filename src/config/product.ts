@@ -17,7 +17,8 @@ export const TECH = {
   smsCodeMaxAttempts: 5,
   smsCodesPerHour: 3,
   pinLockMinutes: 15,
-  userSessionHours: 12,
+  userSessionHours: 12, // admin Revio
+  merchantSessionDays: 30, // commerçants et vendeurs (glissant)
   userMaxFailedLogins: 5,
   userLockMinutes: 15,
   pairingCodeTtlMinutes: 30,

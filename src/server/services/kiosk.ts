@@ -21,6 +21,7 @@ import {
 } from "./customers";
 import { hasSpunToday } from "./wheel";
 import { PURCHASE_BONUS_TYPES } from "./points";
+import { currentConsents, recordConsent } from "./consents";
 
 const ttl = () => addSeconds(new Date(), TECH.kioskSessionTtlSeconds);
 const OPEN = ["AWAITING_AUTH", "IDENTIFIED"] as const;
@@ -185,4 +186,20 @@ export async function activeKioskSessions(tx: Tx, merchantId: string) {
       customer: await customerSummary(tx, s.customerId!),
     })),
   );
+}
+
+/** Le client identifié change lui-même son accord pour les offres par SMS (nouvelle ligne de consentement). */
+export async function setKioskMarketing(tx: Tx, ctx: Ctx, sessionId: string, marketingSms: boolean) {
+  const s = await loadSession(tx, ctx, sessionId);
+  if (!s.customer || !["IDENTIFIED", "COMPLETED"].includes(s.status)) throw badRequest("SESSION_STATE", "Identifiez-vous d'abord");
+  await recordConsent(tx, ctx, s.customer.id, "MARKETING_SMS", marketingSms);
+  return { marketingSms };
+}
+
+/** Accord marketing actuel (pour l'écran « Mes préférences »). */
+export async function kioskPreferences(tx: Tx, ctx: Ctx, sessionId: string) {
+  const s = await loadSession(tx, ctx, sessionId);
+  if (!s.customer || !["IDENTIFIED", "COMPLETED"].includes(s.status)) throw badRequest("SESSION_STATE", "Identifiez-vous d'abord");
+  const c = await currentConsents(tx, s.customer.id);
+  return { marketingSms: c.MARKETING_SMS };
 }

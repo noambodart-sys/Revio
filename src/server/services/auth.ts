@@ -11,7 +11,7 @@ export const SESSION_COOKIE = "revio_session";
 
 export interface SessionUser {
   id: string;
-  email: string;
+  email: string | null;
   displayName: string;
   role: UserRole;
   merchantId: string | null;
@@ -28,7 +28,7 @@ export async function login(emailRaw: string, password: string, totp?: string | 
   const db = systemDb();
   const email = emailRaw.trim().toLowerCase();
   const user = await db.user.findUnique({ where: { email }, include: { merchant: true } });
-  if (!user || user.disabledAt) {
+  if (!user || user.disabledAt || !user.passwordHash) {
     await verifySecret(await getDummyHash(), password); // temps de réponse constant
     throw INVALID();
   }
@@ -53,13 +53,16 @@ export async function login(emailRaw: string, password: string, totp?: string | 
   if (user.merchant?.suspendedAt) throw new AppError(403, "MERCHANT_SUSPENDED", "Ce commerce est suspendu. Contactez le support.");
 
   const token = randomToken(32);
-  const expiresAt = new Date(Date.now() + TECH.userSessionHours * 3600_000);
+  const expiresAt = new Date(Date.now() + sessionLengthMs(user.role));
   await db.$transaction([
     db.user.update({ where: { id: user.id }, data: { failedLoginCount: 0, lockedUntil: null, lastLoginAt: new Date() } }),
     db.userSession.create({ data: { userId: user.id, tokenHash: sha256(token), expiresAt } }),
   ]);
   return { token, expiresAt, user: { id: user.id, role: user.role } };
 }
+
+/** Admin Revio : 12 h. Commerçants et vendeurs : 30 jours glissants (prolongés à l'usage). */
+export const sessionLengthMs = (role: UserRole) => (role === "REVIO_ADMIN" ? TECH.userSessionHours : TECH.merchantSessionDays * 24) * 3600_000;
 
 export async function getSessionUser(token: string | undefined | null): Promise<SessionUser | null> {
   if (!token) return null;
@@ -69,6 +72,11 @@ export async function getSessionUser(token: string | undefined | null): Promise<
   });
   if (!s || s.revokedAt || s.expiresAt < new Date() || s.user.disabledAt) return null;
   if (s.user.merchant?.suspendedAt) return null;
+  // Session glissante : prolongée quand il reste moins de la moitié de sa durée
+  const length = sessionLengthMs(s.user.role);
+  if (s.expiresAt.getTime() - Date.now() < length / 2) {
+    await systemDb().userSession.update({ where: { id: s.id }, data: { expiresAt: new Date(Date.now() + length) } });
+  }
   return {
     id: s.user.id,
     email: s.user.email,

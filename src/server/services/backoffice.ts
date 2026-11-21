@@ -207,18 +207,25 @@ export const brandingSchema = z
     primaryColor: z.string().regex(/^#[0-9a-fA-F]{6}$/, "Couleur invalide").nullable(),
     logoUrl: z.string().max(Math.ceil(MAX_LOGO_BYTES * 1.4)).nullable(),
     kioskMessage: z.string().trim().max(200).nullable(),
+    kioskTitle: z.string().trim().max(80).nullable(),
+    kioskTheme: z.enum(["moderne", "chaleureux", "elegant", "pop"]),
+    kioskBackground: z.string().max(900_000).nullable(),
   })
   .partial()
   .strict();
 
 export async function updateBranding(tx: Tx, ctx: Ctx, input: z.infer<typeof brandingSchema>) {
-  if (input.logoUrl && !/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(input.logoUrl)) {
-    throw badRequest("INVALID_LOGO", "Logo invalide : image PNG, JPEG ou WebP uniquement");
-  }
+  const isImage = (v: string) => /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(v);
+  if (input.logoUrl && !isImage(input.logoUrl)) throw badRequest("INVALID_LOGO", "Logo invalide : image PNG, JPEG ou WebP uniquement");
+  if (input.kioskBackground && !isImage(input.kioskBackground)) throw badRequest("INVALID_IMAGE", "Photo invalide : image PNG, JPEG ou WebP uniquement");
   const m = await tx.merchant.update({
     where: { id: ctx.merchantId },
-    data: { ...input, kioskMessage: input.kioskMessage === undefined ? undefined : input.kioskMessage || null },
-    select: { primaryColor: true, logoUrl: true, kioskMessage: true },
+    data: {
+      ...input,
+      kioskMessage: input.kioskMessage === undefined ? undefined : input.kioskMessage || null,
+      kioskTitle: input.kioskTitle === undefined ? undefined : input.kioskTitle || null,
+    },
+    select: { primaryColor: true, logoUrl: true, kioskMessage: true, kioskTitle: true, kioskTheme: true },
   });
   await audit(tx, {
     merchantId: ctx.merchantId,
@@ -226,7 +233,7 @@ export async function updateBranding(tx: Tx, ctx: Ctx, input: z.infer<typeof bra
     action: "merchant.branding",
     entityType: "merchant",
     entityId: ctx.merchantId,
-    metadata: { primaryColor: input.primaryColor, logoChanged: input.logoUrl !== undefined },
+    metadata: { primaryColor: input.primaryColor, theme: input.kioskTheme, logoChanged: input.logoUrl !== undefined, backgroundChanged: input.kioskBackground !== undefined },
   });
   return m;
 }

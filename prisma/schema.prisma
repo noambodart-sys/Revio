@@ -160,6 +160,9 @@ model Merchant {
   primaryColor   String? @map("primary_color")
   secondaryColor String? @map("secondary_color")
   kioskMessage   String? @map("kiosk_message") // message du jour affiché par la tablette en veille
+  kioskTheme     String  @default("moderne") @map("kiosk_theme") // style de la tablette (moderne, chaleureux, elegant, pop)
+  kioskTitle     String? @map("kiosk_title") // titre d'accueil personnalisé
+  kioskBackground String? @map("kiosk_background") // photo de fond (image intégrée, redimensionnée)
   businessType   String? @map("business_type") // métier (modèles de démarrage)
 
   // Abonnement
@@ -204,10 +207,12 @@ model User {
   merchantId String?   @map("merchant_id") @db.Uuid // null pour REVIO_ADMIN
   merchant   Merchant? @relation(fields: [merchantId], references: [id], onDelete: Cascade)
 
-  email        String   @unique // stocké en minuscules
+  // E-mail + mot de passe : facultatifs pour un vendeur qui n'utilise que la tablette (code vendeur)
+  email        String?  @unique // stocké en minuscules
   displayName  String   @map("display_name")
   role         UserRole
-  passwordHash String   @map("password_hash") // Argon2id
+  passwordHash String?  @map("password_hash") // Argon2id
+  staffPinHash String?  @map("staff_pin_hash") // code vendeur (4 à 6 chiffres) pour encaisser sur la tablette
 
   totpSecretEnc    Bytes?    @map("totp_secret_enc") // 2FA, chiffré
   failedLoginCount Int       @default(0) @map("failed_login_count")

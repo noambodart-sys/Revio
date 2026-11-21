@@ -28,7 +28,10 @@ export const GET = route(async (req) => {
     );
     return {
       productName: PRODUCT_NAME,
-      merchant: { name: m.name, logoUrl: m.logoUrl, primaryColor: m.primaryColor, secondaryColor: m.secondaryColor, kioskMessage: m.kioskMessage },
+      merchant: {
+        name: m.name, logoUrl: m.logoUrl, primaryColor: m.primaryColor, secondaryColor: m.secondaryColor, kioskMessage: m.kioskMessage,
+        kioskTitle: m.kioskTitle, kioskTheme: m.kioskTheme, kioskBackground: m.kioskBackground,
+      },
       rewards: (await tx.reward.findMany({ where: { active: true }, orderBy: [{ sortOrder: "asc" }, { pointsCost: "asc" }], take: 6 })).map((r) => ({ name: r.name, pointsCost: r.pointsCost })),
       happyHour: await happyHourStatus(tx, ctx.merchantId),
       loyalty: {

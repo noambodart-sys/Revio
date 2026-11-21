@@ -322,7 +322,7 @@ describe("jobs et expiration", () => {
 
 describe("comptes et appareils", () => {
   it("connexion, blocage après 5 échecs, suspension du commerce", async () => {
-    const email = M1.owner.email;
+    const email = M1.owner.email!;
     const ok = await login(email, "mot-de-passe-solide");
     expect((await getSessionUser(ok.token))?.merchantId).toBe(M1.merchant.id);
     for (let i = 0; i < 5; i++) await expect(login(email, "faux-mot-de-passe")).rejects.toMatchObject({ status: 401 });
