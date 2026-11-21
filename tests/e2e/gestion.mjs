@@ -80,13 +80,25 @@ try {
   await page.getByText("Roue enregistrée").waitFor();
   step("roue et niveaux : affichage et enregistrement");
 
-  // Apparence
+  // Apparence : style, titre, couleur
   await page.getByRole("button", { name: "Apparence" }).click();
-  await page.locator("input.font-mono").fill("#0f766e");
+  await page.getByRole("button", { name: /Chaleureux/ }).click();
+  await page.getByLabel("Titre d'accueil").fill("Votre fidélité a bon goût");
+  await page.getByLabel("Code couleur").fill("#0f766e");
   await page.getByRole("button", { name: "Enregistrer", exact: true }).click();
   await page.getByText("Apparence enregistrée").first().waitFor();
   await shot(page, "g5-apparence");
-  step("apparence : couleur enregistrée");
+  step("apparence : style « Chaleureux », titre et couleur enregistrés");
+
+  // Équipe : un vendeur avec un simple code (pour encaisser sur la tablette)
+  await page.getByRole("button", { name: "Équipe" }).click();
+  await page.getByLabel("Prénom").fill("Inès");
+  await page.getByLabel("Code vendeur (4 à 6 chiffres)").fill("2580");
+  await page.getByRole("button", { name: "Ajouter", exact: true }).click();
+  await page.getByText("Membre ajouté").waitFor();
+  await page.getByText(/Inès/).first().waitFor();
+  await shot(page, "g7-equipe");
+  step("équipe : vendeuse « Inès » ajoutée avec un code vendeur");
 
   // Demandes RGPD
   await page.getByRole("button", { name: "Demandes RGPD" }).click();

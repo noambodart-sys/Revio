@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { api, errorMessage } from "@/lib/api";
 import { BigButton, Card, Icon, Screen, Skeleton, euros } from "./ui";
+import { segmentIcon, templateIcon, Tile } from "./icons";
 
 export interface SendPreset { templateKey?: string; segmentKey?: string }
 
@@ -116,7 +117,7 @@ export function SendFlow({ preset, onClose }: { preset: SendPreset; onClose: (se
         <div className="grid grid-cols-2 gap-3">
           {templates.map((t) => (
             <Card key={t.key} onClick={() => choose(t)} className="p-4">
-              <div className="text-3xl">{t.icon}</div>
+              <Tile name={templateIcon(t.key)} />
               <div className="mt-2 text-base font-semibold leading-snug">{t.label}</div>
               <div className="mt-1 text-sm leading-snug text-slate-500">{t.hint}</div>
             </Card>
@@ -130,7 +131,7 @@ export function SendFlow({ preset, onClose }: { preset: SendPreset; onClose: (se
   if (step === "fill" && tpl) {
     return (
       <Screen
-        title={`${tpl.icon} ${tpl.label}`}
+        title={tpl.label}
         subtitle="Étape 1 sur 3 · complétez"
         onBack={() => setStep("what")}
         footer={<BigButton disabled={!fillComplete} onClick={() => setStep(preset.segmentKey ? "preview" : "who")}>Continuer</BigButton>}
@@ -181,7 +182,7 @@ export function SendFlow({ preset, onClose }: { preset: SendPreset; onClose: (se
           return (
             <Card key={s.key} onClick={() => s.reachable > 0 && setSegmentKey(s.key)} className={`${selected ? "ring-2 ring-slate-900" : ""} ${s.reachable === 0 ? "opacity-45" : ""}`}>
               <div className="flex items-center gap-4">
-                <span className="text-2xl">{s.icon}</span>
+                <Tile name={segmentIcon(s.key)} size="sm" />
                 <div className="flex-1">
                   <div className="font-semibold">{s.label}</div>
                   <div className="text-sm text-slate-500">{s.reachable} client{s.reachable > 1 ? "s" : ""} recevront le SMS</div>
@@ -218,7 +219,7 @@ export function SendFlow({ preset, onClose }: { preset: SendPreset; onClose: (se
               <div className="max-w-[85%] rounded-3xl rounded-bl-md bg-white px-4 py-3 text-[17px] leading-snug shadow-sm">{p.sample}</div>
             </div>
             <Card className="space-y-3">
-              <Row label="Groupe" value={`${p.segment.icon} ${p.segment.label}`} onEdit={preset.segmentKey ? undefined : () => setStep("who")} />
+              <Row label="Groupe" value={p.segment.label} onEdit={preset.segmentKey ? undefined : () => setStep("who")} />
               <Row label="Destinataires" value={`${p.recipients} client${p.recipients > 1 ? "s" : ""}`} />
               <Row label="Longueur" value={`${p.info.parts} SMS par client${p.info.encoding === "UNICODE" ? " (emoji ou accent spécial)" : ""}`} />
               <Row label="Coût estimé" value={euros(p.costCents)} />
@@ -226,11 +227,11 @@ export function SendFlow({ preset, onClose }: { preset: SendPreset; onClose: (se
             </Card>
             {(p.excluded.noConsent > 0 || p.excluded.monthlyLimit > 0) && (
               <Card className="text-sm text-slate-600">
-                {p.excluded.noConsent > 0 && <p>🔒 {p.excluded.noConsent} client{p.excluded.noConsent > 1 ? "s" : ""} du groupe n&apos;{p.excluded.noConsent > 1 ? "ont" : "a"} pas accepté les offres : ils ne recevront rien.</p>}
-                {p.excluded.monthlyLimit > 0 && <p className="mt-1">✋ {p.excluded.monthlyLimit} client{p.excluded.monthlyLimit > 1 ? "s ont" : " a"} déjà reçu {p.maxPerMonth} SMS ce mois-ci : on ne les dérange pas plus.</p>}
+                {p.excluded.noConsent > 0 && <p>{p.excluded.noConsent} client{p.excluded.noConsent > 1 ? "s" : ""} du groupe n&apos;{p.excluded.noConsent > 1 ? "ont" : "a"} pas accepté les offres : ils ne recevront rien.</p>}
+                {p.excluded.monthlyLimit > 0 && <p className="mt-1">{p.excluded.monthlyLimit} client{p.excluded.monthlyLimit > 1 ? "s ont" : " a"} déjà reçu {p.maxPerMonth} SMS ce mois-ci : on ne les dérange pas plus.</p>}
               </Card>
             )}
-            {!p.window.open && <Card className="bg-amber-50 text-amber-900">🕘 {p.window.reason}</Card>}
+            {!p.window.open && <Card className="bg-amber-50 text-amber-900">{p.window.reason}</Card>}
             {p.tooLong && <Card className="bg-amber-50 text-amber-900">Message trop long : raccourcissez-le (2 SMS maximum).</Card>}
             {p.recipients === 0 && <Card className="bg-amber-50 text-amber-900">Personne dans ce groupe ne peut recevoir de SMS pour l&apos;instant.</Card>}
             <p className="px-2 text-center text-xs text-slate-400">La mention STOP est ajoutée automatiquement. Les numéros ne vous sont jamais montrés.</p>

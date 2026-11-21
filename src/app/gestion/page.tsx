@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { api, errorMessage } from "@/lib/api";
 import { signOut, useSession } from "@/lib/use-session";
+import { WrongAccount } from "@/components/WrongAccount";
 import { PLAN_LABEL } from "@/config/plans";
 import type { Settings } from "./types";
 import { DashboardTab } from "./DashboardTab";
@@ -12,6 +13,7 @@ import { RulesTab } from "./RulesTab";
 import { WheelTiersTab } from "./WheelTiersTab";
 import { BrandingTab } from "./BrandingTab";
 import { RequestsTab } from "./RequestsTab";
+import { TeamTab } from "./TeamTab";
 import { TemplatePicker } from "./TemplatePicker";
 
 const TABS = [
@@ -21,12 +23,13 @@ const TABS = [
   { id: "rules", label: "Règles des points" },
   { id: "wheel", label: "Roue et niveaux" },
   { id: "branding", label: "Apparence" },
+  { id: "team", label: "Équipe" },
   { id: "requests", label: "Demandes RGPD" },
 ] as const;
 type TabId = (typeof TABS)[number]["id"];
 
 export default function GestionPage() {
-  const me = useSession(["OWNER"], "/gestion");
+  const { me, wrongAccount } = useSession(["OWNER"], "/gestion");
   const [tab, setTab] = useState<TabId>("dashboard");
   const [settings, setSettings] = useState<Settings | null>(null);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
@@ -52,6 +55,7 @@ export default function GestionPage() {
     try { localStorage.setItem("gestion_tab", t); } catch {}
   };
 
+  if (wrongAccount) return <WrongAccount user={wrongAccount} pageName="La gestion" needed="au propriétaire du commerce" next="/gestion" />;
   if (!me || !settings) return <main className="p-6 text-slate-500">Chargement…</main>;
 
   return (
@@ -65,7 +69,7 @@ export default function GestionPage() {
           <Link href="/app" className="rounded-lg bg-white/15 px-3 py-1.5 font-semibold">📱 Appli téléphone</Link>
           <Link href="/caisse" className="rounded-lg bg-white px-3 py-1.5 font-semibold text-slate-900">Ouvrir la caisse</Link>
           <span>{me.displayName}</span>
-          <button className="underline" onClick={signOut}>Déconnexion</button>
+          <button className="underline" onClick={() => signOut()}>Déconnexion</button>
         </div>
       </header>
 
@@ -100,6 +104,7 @@ export default function GestionPage() {
         {tab === "wheel" && <WheelTiersTab settings={settings} flash={flash} onSaved={reload} />}
         {tab === "branding" && <BrandingTab settings={settings} flash={flash} onSaved={reload} />}
         {tab === "requests" && <RequestsTab flash={flash} />}
+        {tab === "team" && <TeamTab flash={flash} meId={me.id} />}
       </div>
     </main>
   );

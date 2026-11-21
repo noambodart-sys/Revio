@@ -4,6 +4,7 @@ import { api, errorMessage } from "@/lib/api";
 import { signOut } from "@/lib/use-session";
 import { BigButton, Card, Icon, Screen, Skeleton, euros } from "./ui";
 import type { SendPreset } from "./SendFlow";
+import { suggestionIcon, Tile } from "./icons";
 
 interface Today {
   merchantName: string;
@@ -25,7 +26,7 @@ export function TodayTab({ onSend }: { onSend: (p: SendPreset) => void }) {
   const delta = s ? s.visits - s.visitsLastWeek : 0;
 
   return (
-    <Screen title={d ? `${hello} ${d.firstName} 👋` : "Aujourd'hui"} subtitle={d?.merchantName}>
+    <Screen title={d ? `${hello} ${d.firstName}` : "Aujourd'hui"} subtitle={d?.merchantName}>
       {error && <Card className="text-red-700">{error}</Card>}
       {!d && !error && <Skeleton />}
       {d && s && (
@@ -54,7 +55,7 @@ export function TodayTab({ onSend }: { onSend: (p: SendPreset) => void }) {
 
           {d.happyHour.active && (
             <Card tone="amber">
-              <div className="text-lg font-bold">⚡ Heures creuses en cours</div>
+              <div className="text-lg font-bold">Heures creuses en cours</div>
               <div className="text-slate-800">Les points sont multipliés jusqu&apos;à {Math.floor(d.happyHour.active.endMinute / 60)} h.</div>
             </Card>
           )}
@@ -63,7 +64,7 @@ export function TodayTab({ onSend }: { onSend: (p: SendPreset) => void }) {
           {d.suggestions.map((sg) => (
             <Card key={sg.key} onClick={() => onSend({ templateKey: sg.templateKey, segmentKey: sg.segmentKey })}>
               <div className="flex items-start gap-4">
-                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-slate-100 text-2xl">{sg.icon}</span>
+                <Tile name={suggestionIcon(sg.key)} />
                 <div className="flex-1">
                   <div className="text-lg font-semibold leading-snug">{sg.title}</div>
                   <div className="mt-1 text-slate-500">{sg.text}</div>
@@ -79,7 +80,7 @@ export function TodayTab({ onSend }: { onSend: (p: SendPreset) => void }) {
           <div className="flex justify-center gap-6 pt-6 text-sm text-slate-400">
             <a href="/gestion" className="underline">Réglages complets</a>
             <a href="/caisse" className="underline">Caisse</a>
-            <button onClick={signOut} className="underline">Déconnexion</button>
+            <button onClick={() => signOut()} className="underline">Déconnexion</button>
           </div>
         </>
       )}

@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, errorMessage, formatDate } from "@/lib/api";
 import { signOut, useSession } from "@/lib/use-session";
+import { WrongAccount } from "@/components/WrongAccount";
 import { PRODUCT_NAME } from "@/config/product";
 import { BUSINESS_TEMPLATES } from "@/config/templates";
 
@@ -38,7 +39,7 @@ interface AuditRow {
 const emptyForm = { name: "", slug: "", vatNumber: "", addressLine1: "", postalCode: "", city: "", plan: "ESSENTIEL" as "ESSENTIEL" | "PRO", businessType: "", ownerEmail: "", ownerName: "", ownerPassword: "" };
 
 export default function AdminPage() {
-  const me = useSession(["REVIO_ADMIN"], "/admin");
+  const { me, wrongAccount } = useSession(["REVIO_ADMIN"], "/admin");
   const [merchants, setMerchants] = useState<MerchantRow[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detail, setDetail] = useState<MerchantDetail | null>(null);
@@ -80,6 +81,7 @@ export default function AdminPage() {
       setMsg({ ok: true, text: "Commerce créé (essai gratuit d'un mois)" });
     });
 
+  if (wrongAccount) return <WrongAccount user={wrongAccount} pageName="L'admin" needed="à l'équipe qui gère la plateforme" next="/admin" />;
   if (!me) return <main className="p-6 text-slate-500">Chargement…</main>;
 
   const field = (key: keyof typeof form, label: string, props: React.InputHTMLAttributes<HTMLInputElement> = {}) => (
@@ -95,7 +97,7 @@ export default function AdminPage() {
         <div className="text-lg font-bold">Admin {PRODUCT_NAME}</div>
         <div className="flex items-center gap-4 text-sm">
           <span>{me.email}</span>
-          <button className="underline" onClick={signOut}>Déconnexion</button>
+          <button className="underline" onClick={() => signOut()}>Déconnexion</button>
         </div>
       </header>
       {msg && <div className={`mx-5 mt-4 rounded-lg px-4 py-3 ${msg.ok ? "bg-emerald-50 text-emerald-800" : "bg-red-50 text-red-800"}`}>{msg.text}</div>}

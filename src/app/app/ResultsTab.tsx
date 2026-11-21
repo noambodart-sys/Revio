@@ -2,10 +2,12 @@
 import { useEffect, useState } from "react";
 import { api, errorMessage } from "@/lib/api";
 import { BigButton, Card, Icon, Screen, Skeleton, euros } from "./ui";
+import { templateIcon, Tile } from "./icons";
 
 interface Result {
   id: string;
   title: string;
+  templateKey: string | null;
   message: string;
   offerTitle: string | null;
   segment: string;
@@ -34,7 +36,7 @@ export function ResultsTab({ onSend }: { onSend: () => void }) {
       {!items ? <Skeleton /> : items.length === 0 ? (
         <>
           <Card className="py-10 text-center">
-            <div className="text-5xl">📬</div>
+            <div className="flex justify-center"><Tile name="sparkle" /></div>
             <p className="mt-4 text-lg font-semibold">Pas encore de message envoyé</p>
             <p className="mt-1 text-slate-500">Envoyez une première offre : vous verrez ici combien de clients sont venus grâce à elle.</p>
           </Card>
@@ -54,9 +56,12 @@ export function ResultsTab({ onSend }: { onSend: () => void }) {
             return (
               <Card key={r.id}>
                 <div className="flex items-start justify-between gap-3">
-                  <div>
+                  <div className="flex items-start gap-3">
+                    <Tile name={templateIcon(r.templateKey ?? "")} size="sm" />
+                    <div>
                     <div className="text-lg font-semibold">{r.title}</div>
                     <div className="text-sm text-slate-500">{new Date(r.sentAt).toLocaleDateString("fr-BE", { day: "numeric", month: "long" })} · {r.segment}</div>
+                    </div>
                   </div>
                   <span className="rounded-full bg-slate-100 px-3 py-1 text-sm font-semibold">{r.sent} SMS</span>
                 </div>

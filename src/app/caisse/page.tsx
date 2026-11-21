@@ -1,7 +1,8 @@
 "use client";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api, errorMessage, formatDate, formatEuros, NetworkError } from "@/lib/api";
 import { signOut, useSession } from "@/lib/use-session";
+import { WrongAccount } from "@/components/WrongAccount";
 import { enqueuePurchase, flushQueue, listQueued, newIdempotencyKey } from "@/lib/offline-queue";
 import { Keypad } from "@/components/Keypad";
 import { Modal } from "@/components/Modal";
@@ -40,8 +41,26 @@ const BONUS_LABEL: Record<string, string> = {
   HAPPY_HOUR_BONUS: "heures creuses", VISIT_MILESTONE_BONUS: "visite fêtée", STREAK_BONUS: "régularité", ANNIVERSARY_BONUS: "anniversaire",
 };
 
+/** Petit signal sonore discret quand un client arrive (bloqué par le navigateur tant qu'on n'a pas touché la page). */
+function beep() {
+  try {
+    const Ctx = window.AudioContext ?? (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    const ctx = new Ctx();
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.frequency.value = 880;
+    g.gain.setValueAtTime(0.08, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.25);
+    o.connect(g).connect(ctx.destination);
+    o.start();
+    o.stop(ctx.currentTime + 0.26);
+  } catch {
+    /* pas de son disponible */
+  }
+}
+
 export default function CaissePage() {
-  const me = useSession(["OWNER", "STAFF"], "/caisse");
+  const { me, wrongAccount } = useSession(["OWNER", "STAFF"], "/caisse");
   const [sessions, setSessions] = useState<ActiveSession[]>([]);
   const [selected, setSelected] = useState<{ customerId: string; sessionId: string | null } | null>(null);
   const [detail, setDetail] = useState<Detail | null>(null);
@@ -53,7 +72,8 @@ export default function CaissePage() {
   const [busy, setBusy] = useState(false);
   const [queued, setQueued] = useState(0);
   const [online, setOnline] = useState(true);
-  const [modal, setModal] = useState<null | "adjust" | "erase" | "rectify">(null);
+  const [modal, setModal] = useState<null | "adjust" | "erase" | "rectify" | "takeover">(null);
+  const [arrived, setArrived] = useState<string | null>(null);
   const [happyHour, setHappyHour] = useState<{ multiplierPercent: number; endMinute: number } | null>(null);
 
   const flash = (kind: "ok" | "err" | "warn", text: string) => {
@@ -71,7 +91,7 @@ export default function CaissePage() {
   // Passages en cours à la tablette
   useEffect(() => {
     if (!me) return;
-    const poll = () => api<ActiveSession[]>("/api/v1/pos/sessions").then(setSessions).catch(() => undefined);
+    const poll = () => api<ActiveSession[]>("/api/v1/pos/sessions").then(onSessions).catch(() => undefined);
     poll();
     const t = setInterval(poll, 2000);
     api<Reward[]>("/api/v1/pos/rewards").then(setRewards).catch(() => undefined);
@@ -116,6 +136,25 @@ export default function CaissePage() {
     if (selected) loadDetail(selected.customerId);
     else setDetail(null);
   }, [selected, loadDetail]);
+
+  // Ouverture automatique : quand un client s'identifie sur la tablette, sa fiche s'ouvre ici,
+  // sauf si le vendeur est en train de saisir un montant pour un autre client.
+  const seen = useRef<Set<string>>(new Set());
+  const busyRef = useRef({ selected, amount });
+  busyRef.current = { selected, amount };
+  const onSessions = (list: ActiveSession[]) => {
+    setSessions(list);
+    const fresh = list.filter((s) => (s.status === "IDENTIFIED" || s.authMethod === "STAFF_VALIDATION") && !seen.current.has(`${s.sessionId}:${s.status}`));
+    for (const s of list) seen.current.add(`${s.sessionId}:${s.status}`);
+    const next = fresh[0];
+    if (!next) return;
+    const { selected: cur, amount: typing } = busyRef.current;
+    if (cur && typing && cur.customerId !== next.customer.id) return;
+    selectSession(next);
+    setArrived(next.sessionId);
+    beep();
+    setTimeout(() => setArrived((a) => (a === next.sessionId ? null : a)), 4000);
+  };
 
   const selectSession = (s: ActiveSession) => {
     setSelected({ customerId: s.customer.id, sessionId: s.status === "IDENTIFIED" ? s.sessionId : null });
@@ -184,6 +223,7 @@ export default function CaissePage() {
       await loadDetail(selected.customerId);
     });
 
+  if (wrongAccount) return <WrongAccount user={wrongAccount} pageName="La caisse" needed="aux vendeurs et propriétaires d'un commerce" next="/caisse" />;
   if (!me) return <main className="p-6 text-slate-500">Chargement…</main>;
   const isOwner = me.role === "OWNER";
 
@@ -201,7 +241,7 @@ export default function CaissePage() {
           {queued > 0 && <button className="rounded-full bg-amber-200 px-3 py-1 font-semibold text-slate-900" onClick={sync}>{queued} achat(s) à synchroniser</button>}
           {me.role === "OWNER" && <a href="/gestion" className="rounded-lg bg-white px-3 py-1.5 font-semibold text-slate-900">Gestion</a>}
           <span>{me.displayName}</span>
-          <button className="underline" onClick={signOut}>Déconnexion</button>
+          <button className="underline" onClick={() => signOut()}>Déconnexion</button>
         </div>
       </header>
 
@@ -216,9 +256,9 @@ export default function CaissePage() {
         <section className="space-y-4">
           <div className="card space-y-3">
             <h2 className="text-lg font-semibold">À la tablette</h2>
-            {sessions.length === 0 && <p className="text-slate-500">Aucun client en cours. Invitez le client à taper son numéro.</p>}
+            {sessions.length === 0 && <p className="text-slate-500">En attente d&apos;un client. Dès qu&apos;il tape son numéro sur la tablette, sa fiche s&apos;ouvre ici automatiquement.</p>}
             {sessions.map((s) => (
-              <div key={s.sessionId} className={`rounded-xl p-3 ring-2 ${selected?.customerId === s.customer.id ? "ring-brand" : "ring-slate-100"}`}>
+              <div key={s.sessionId} className={`rounded-xl p-3 ring-2 transition ${arrived === s.sessionId ? "animate-pop bg-emerald-50 ring-emerald-500" : selected?.customerId === s.customer.id ? "ring-brand" : "ring-slate-100"}`}>
                 <button className="w-full text-left" onClick={() => selectSession(s)}>
                   <div className="text-lg font-semibold">{s.customer.firstName ?? "Client"} <span className="font-normal text-slate-500">{s.customer.maskedPhone}</span></div>
                   <div className="text-slate-600">{s.customer.balance} points{s.customer.tier ? ` · ${s.customer.tier.name}` : ""} · {s.deviceName}</div>
@@ -307,6 +347,7 @@ export default function CaissePage() {
                 <div className="card space-y-3">
                   <div className="flex flex-wrap gap-2">
                     <button className="btn-ghost" onClick={() => setModal("adjust")}>Corriger les points</button>
+                    <button className="btn-ghost" onClick={() => setModal("takeover")}>Reprendre une ancienne carte</button>
                     {(detail.consents.MARKETING_SMS || detail.consents.MARKETING_EMAIL) && <button className="btn-ghost" onClick={optOut}>Désinscrire du marketing</button>}
                   </div>
                   {isOwner && (
@@ -351,6 +392,19 @@ export default function CaissePage() {
               const r = await api<{ balance: number; alert: boolean }>(`/api/v1/pos/customers/${detail.id}/adjustments`, { body: { points, reason } });
               setModal(null);
               flash(r.alert ? "warn" : "ok", `Correction enregistrée. Solde : ${r.balance}${r.alert ? " — nombre de corrections inhabituel, signalé au propriétaire" : ""}`);
+              await loadDetail(detail.id);
+            })
+          }
+        />
+      )}
+      {modal === "takeover" && detail && (
+        <TakeoverModal
+          onClose={() => setModal(null)}
+          onSubmit={(points, source) =>
+            act(async () => {
+              const r = await api<{ balance: number }>(`/api/v1/pos/customers/${detail.id}/adjustments`, { body: { points, reason: `Reprise ancienne carte : ${source}` } });
+              setModal(null);
+              flash("ok", `${points} points repris de l'ancienne carte. Nouveau solde : ${r.balance}`);
               await loadDetail(detail.id);
             })
           }
@@ -404,6 +458,29 @@ function AdjustModal({ onClose, onSubmit }: { onClose: () => void; onSubmit: (po
         </div>
         <p className="text-sm text-slate-500">Chaque correction est enregistrée avec votre nom dans le journal d&apos;audit.</p>
         <button className="btn-dark w-full" disabled={!Number.isInteger(n) || n === 0 || reason.trim().length < 3} onClick={() => onSubmit(n, reason)}>Enregistrer</button>
+      </div>
+    </Modal>
+  );
+}
+
+function TakeoverModal({ onClose, onSubmit }: { onClose: () => void; onSubmit: (points: number, source: string) => void }) {
+  const [points, setPoints] = useState("");
+  const [source, setSource] = useState("carte à tampons papier");
+  const n = Number(points);
+  return (
+    <Modal title="Reprendre une ancienne carte" onClose={onClose}>
+      <div className="space-y-4">
+        <p className="text-slate-600">Le client avait une carte de fidélité avant (papier ou autre programme) ? Reportez ses points ici pour qu&apos;il ne perde rien.</p>
+        <div>
+          <label className="label" htmlFor="takeover-points">Points à reprendre</label>
+          <input id="takeover-points" className="input" inputMode="numeric" value={points} onChange={(e) => setPoints(e.target.value.replace(/\D/g, ""))} placeholder="ex. 80" />
+          <p className="mt-1 text-sm text-slate-500">Astuce : pour une carte à tampons, comptez la valeur de chaque tampon (ex. 8 tampons × 10 points).</p>
+        </div>
+        <div>
+          <label className="label" htmlFor="takeover-source">Ancienne carte</label>
+          <input id="takeover-source" className="input" value={source} maxLength={60} onChange={(e) => setSource(e.target.value)} />
+        </div>
+        <button className="btn-dark w-full" disabled={!Number.isInteger(n) || n <= 0 || source.trim().length < 3} onClick={() => onSubmit(n, source.trim())}>Reprendre {n > 0 ? `${n} points` : "les points"}</button>
       </div>
     </Modal>
   );

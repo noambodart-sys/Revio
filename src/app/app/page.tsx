@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useSession } from "@/lib/use-session";
+import { WrongAccount } from "@/components/WrongAccount";
 import { Icon } from "./ui";
 import { TodayTab } from "./TodayTab";
 import { ClientsTab } from "./ClientsTab";
@@ -11,7 +12,7 @@ type Tab = "today" | "clients" | "results";
 
 /** L'appli du commerçant : quatre gestes, pas de jargon. */
 export default function MerchantApp() {
-  const me = useSession(["OWNER"], "/app");
+  const { me, wrongAccount } = useSession(["OWNER"], "/app");
   const [tab, setTab] = useState<Tab>("today");
   const [sending, setSending] = useState<SendPreset | null>(null);
 
@@ -20,6 +21,7 @@ export default function MerchantApp() {
     if (t === "clients" || t === "results") setTab(t);
   }, []);
 
+  if (wrongAccount) return <WrongAccount user={wrongAccount} pageName="L'appli du commerçant" needed="au propriétaire du commerce" next="/app" />;
   if (!me) return <div className="flex min-h-screen items-center justify-center text-slate-400">Chargement…</div>;
 
   if (sending) {

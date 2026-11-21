@@ -63,7 +63,12 @@ npm run tablette:qr       # réaffiche le QR code + nouveau code d'appairage (se
 
 Tests navigateur : `tests/e2e/parcours.mjs` puis `tests/e2e/gestion.mjs` (voir leur en-tête).
 
-Tests navigateur de l'appli : `tests/e2e/appli.mjs` (après `parcours.mjs`).
+Tests navigateur de l'appli : `tests/e2e/appli.mjs` (après `parcours.mjs`), puis `tests/e2e/comptoir.mjs`
+(après `gestion.mjs`, avec `E2E_PAIRING_CODE`).
+
+Mode comptoir : `services/counter.ts` (code vendeur → autorisation signée de 3 min, liée au passage).
+Équipe : `services/team.ts` (le propriétaire écrit dans `users` sous RLS ; sessions via `systemDb`).
+Styles de la tablette : variables CSS `.kiosk[data-theme]` dans `globals.css`.
 
 Écrans : `/kiosque` (tablette), `/caisse` (vendeur), `/app` (appli du propriétaire sur téléphone),
 `/gestion` (back-office complet), `/admin` (équipe).

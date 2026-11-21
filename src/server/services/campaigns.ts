@@ -217,7 +217,8 @@ export async function campaignResults(tx: Tx, merchantId: string, campaignId?: s
       const t = messageTemplateByKey(c.templateKey ?? "");
       return {
         id: c.id,
-        title: t ? `${t.icon} ${t.label}` : "Message",
+        title: t ? t.label : "Message",
+        templateKey: c.templateKey,
         message: c.message,
         offerTitle: c.offerTitle,
         offerValidUntil: c.offerValidUntil,

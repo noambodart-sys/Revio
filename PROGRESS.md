@@ -68,6 +68,20 @@
 - [ ] Envoi programmé (aujourd'hui : envoi immédiat dans la plage horaire)
 - [ ] Appli native (Expo) une fois le parcours validé par des commerçants
 
+### Audit « prêt à vendre », lot 1 (21/11/2026)
+
+Voir `docs/audit-commercialisation.md` (bloquants restants, décisions, risques).
+
+- [x] Mauvais compte : page explicative au lieu d'une redirection muette vers la caisse
+- [x] Caisse : fiche du client ouverte automatiquement dès qu'il s'identifie sur la tablette
+- [x] Mode comptoir : encaisser, remettre une récompense, appliquer une offre ou confirmer
+      l'identité sur la tablette avec un code vendeur (sans ordinateur)
+- [x] Équipe gérée par le propriétaire (code vendeur, e-mail facultatif, désactivation) ;
+      changement de mot de passe ; sessions de 30 jours glissants
+- [x] Tablette personnalisable : 4 styles, titre, photo de fond ; icônes au lieu d'emojis (tablette + appli)
+- [x] Préférences du client sur la tablette (offres SMS) ; reprise d'une ancienne carte en caisse
+- [x] 127 tests + 4 parcours navigateur (dont `tests/e2e/comptoir.mjs`)
+
 ### Idées en attente (à valider avec des commerçants)
 
 - [ ] Cagnotte solidaire pour une association du quartier (affichée sur la tablette)

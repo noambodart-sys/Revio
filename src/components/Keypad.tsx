@@ -9,7 +9,7 @@ export function Keypad({ onDigit, onDelete, onSubmit, submitLabel = "OK", submit
   submitDisabled?: boolean;
   extraKey?: { label: string; onPress: () => void };
 }) {
-  const key = "flex h-20 items-center justify-center rounded-2xl bg-white text-3xl font-semibold shadow-sm ring-1 ring-slate-200 active:bg-slate-100 sm:h-24";
+  const key = "keypad-key flex h-20 items-center justify-center rounded-2xl bg-white text-3xl font-semibold shadow-sm ring-1 ring-slate-200 active:bg-slate-100 sm:h-24";
   return (
     <div className="grid w-full max-w-md grid-cols-3 gap-3">
       {["1", "2", "3", "4", "5", "6", "7", "8", "9"].map((d) => (
@@ -37,7 +37,7 @@ export function CodeDots({ length, value }: { length: number; value: string }) {
   return (
     <div className="flex justify-center gap-3">
       {Array.from({ length }).map((_, i) => (
-        <div key={i} className={`h-5 w-5 rounded-full ${i < value.length ? "bg-slate-900" : "bg-slate-200"}`} />
+        <div key={i} className={`code-dot h-5 w-5 rounded-full ${i < value.length ? "filled bg-slate-900" : "bg-slate-200"}`} />
       ))}
     </div>
   );

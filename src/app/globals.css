@@ -43,3 +43,89 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .animate-pop, .animate-fade-in, .animate-pulse-soft { animation: none; }
 }
+
+/* ===========================================================================
+   Styles de la tablette, au choix du commerçant (Apparence)
+   Variables : fond, texte, cartes, touches, polices. La couleur du commerce (--brand) s'y ajoute.
+   =========================================================================== */
+.kiosk {
+  --k-font-display: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+  --k-font-body: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+  --k-bg: #fbfaf8;
+  --k-fg: #0f172a;
+  --k-muted: #475569;
+  --k-card: rgb(255 255 255 / 0.92);
+  --k-card-fg: #0f172a;
+  --k-key: #ffffff;
+  --k-key-fg: #0f172a;
+  --k-line: rgb(15 23 42 / 0.08);
+  --k-overlay: rgb(251 250 248 / 0.86);
+  --k-glow: rgb(var(--brand) / 0.18);
+  background-color: var(--k-bg);
+  background-image:
+    radial-gradient(circle at 12% -10%, var(--k-glow), transparent 45%),
+    radial-gradient(circle at 110% 110%, var(--k-glow), transparent 45%);
+  color: var(--k-fg);
+  font-family: var(--k-font-body);
+}
+.kiosk[data-theme="chaleureux"] {
+  --k-font-display: "Fraunces Variable", Georgia, serif;
+  --k-font-body: "DM Sans Variable", ui-sans-serif, system-ui, sans-serif;
+  --k-bg: #f4ece0;
+  --k-fg: #2b1d14;
+  --k-muted: #6b5442;
+  --k-card: rgb(255 251 245 / 0.95);
+  --k-card-fg: #2b1d14;
+  --k-key: #fffaf3;
+  --k-key-fg: #2b1d14;
+  --k-line: rgb(43 29 20 / 0.10);
+  --k-overlay: rgb(244 236 224 / 0.84);
+  --k-glow: rgb(var(--brand) / 0.12);
+}
+.kiosk[data-theme="elegant"] {
+  --k-font-display: "Playfair Display Variable", Georgia, serif;
+  --k-font-body: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+  --k-bg: #121212;
+  --k-fg: #f5f2ea;
+  --k-muted: #b3ada1;
+  --k-card: rgb(255 255 255 / 0.06);
+  --k-card-fg: #f5f2ea;
+  --k-key: rgb(255 255 255 / 0.07);
+  --k-key-fg: #f5f2ea;
+  --k-line: rgb(255 255 255 / 0.12);
+  --k-overlay: rgb(18 18 18 / 0.78);
+  --k-glow: rgb(var(--brand) / 0.20);
+}
+.kiosk[data-theme="pop"] {
+  --k-font-display: "Bricolage Grotesque Variable", ui-sans-serif, system-ui, sans-serif;
+  --k-font-body: "DM Sans Variable", ui-sans-serif, system-ui, sans-serif;
+  --k-bg: rgb(var(--brand));
+  --k-fg: rgb(var(--brand-contrast));
+  --k-muted: rgb(var(--brand-contrast) / 0.78);
+  --k-card: #ffffff;
+  --k-card-fg: #111111;
+  --k-key: #ffffff;
+  --k-key-fg: #111111;
+  --k-line: rgb(0 0 0 / 0.10);
+  --k-overlay: rgb(var(--brand) / 0.82);
+  --k-glow: rgb(255 255 255 / 0.10);
+}
+.kiosk h1, .kiosk h2, .kiosk .k-display { font-family: var(--k-font-display); letter-spacing: -0.02em; }
+.kiosk[data-theme="chaleureux"] h1, .kiosk[data-theme="elegant"] h1 { font-weight: 600; letter-spacing: -0.01em; }
+.kiosk .k-card { background: var(--k-card); color: var(--k-card-fg); box-shadow: 0 1px 2px rgb(0 0 0 / 0.04); border: 1px solid var(--k-line); }
+.kiosk .k-card .k-muted { color: color-mix(in srgb, var(--k-card-fg) 62%, transparent); }
+.kiosk .k-muted { color: var(--k-muted); }
+.kiosk .keypad-key { background: var(--k-key); color: var(--k-key-fg); border: 1px solid var(--k-line); box-shadow: none; }
+.kiosk .keypad-key:active { filter: brightness(0.94); }
+.kiosk .code-dot { background: color-mix(in srgb, var(--k-fg) 18%, transparent); }
+.kiosk .code-dot.filled { background: var(--k-fg); }
+.kiosk[data-theme="pop"] .btn-brand { background: #111111; color: #ffffff; }
+.kiosk .k-photo { background-size: cover; background-position: center; }
+/* Style « Pop » : la couleur du commerce est le fond ; ce qui est normalement « couleur du commerce »
+   passe en blanc (sur le fond) ou reste en couleur (dans les cartes blanches). */
+.kiosk { --k-accent: rgb(var(--brand)); }
+.kiosk[data-theme="pop"] { --k-accent: rgb(var(--brand-contrast)); }
+.kiosk[data-theme="pop"] .text-brand { color: rgb(var(--brand-contrast)); }
+.kiosk[data-theme="pop"] .k-card .text-brand { color: rgb(var(--brand)); }
+.kiosk[data-theme="pop"] .bg-brand { background-color: #111111; color: #ffffff; }
+.kiosk[data-theme="pop"] .k-card .bg-brand { background-color: rgb(var(--brand)); color: rgb(var(--brand-contrast)); }

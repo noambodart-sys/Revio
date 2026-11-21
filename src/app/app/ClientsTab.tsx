@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { api, errorMessage } from "@/lib/api";
 import { BigButton, Card, Icon, Screen, Skeleton, relativeDay, euros } from "./ui";
 import type { SendPreset } from "./SendFlow";
+import { segmentIcon, Tile } from "./icons";
 
 interface Segment { key: string; icon: string; label: string; description: string; count: number; reachable: number }
 interface Member { id: string; firstName: string | null; maskedPhone: string | null; lastVisitAt: string | null; visits: number; balance: number; marketingSms: boolean }
@@ -74,7 +75,7 @@ export function ClientsTab({ onSend }: { onSend: (p: SendPreset) => void }) {
                   {f.consents.MARKETING_SMS ? "Accepte" : "Refusé"}
                 </span>
               </div>
-              {f.offers.length > 0 && <div className="mt-3 rounded-2xl bg-amber-50 px-4 py-3 text-amber-900">🎁 Offre en cours : {f.offers.map((o) => o.title).join(", ")}</div>}
+              {f.offers.length > 0 && <div className="mt-3 rounded-2xl bg-amber-50 px-4 py-3 text-amber-900">Offre en cours : {f.offers.map((o) => o.title).join(", ")}</div>}
             </Card>
             <h2 className="px-1 pt-2 text-lg font-bold">Historique</h2>
             <Card className="divide-y divide-slate-100 py-1">
@@ -101,7 +102,7 @@ export function ClientsTab({ onSend }: { onSend: (p: SendPreset) => void }) {
     const list = (members ?? []).filter((m) => !q || (m.firstName ?? "").toLowerCase().includes(q.toLowerCase()));
     return (
       <Screen
-        title={`${open.icon} ${open.label}`}
+        title={open.label}
         subtitle={`${open.count} client${open.count > 1 ? "s" : ""} · ${open.reachable} joignable${open.reachable > 1 ? "s" : ""} par SMS`}
         onBack={() => setOpen(null)}
         aboveNav
@@ -116,7 +117,7 @@ export function ClientsTab({ onSend }: { onSend: (p: SendPreset) => void }) {
               <button key={m.id} onClick={() => setFiche({ id: m.id, data: null })} className="flex w-full items-center gap-4 py-3 text-left">
                 <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-slate-100 text-lg font-semibold">{(m.firstName ?? "?").slice(0, 1).toUpperCase()}</span>
                 <div className="min-w-0 flex-1">
-                  <div className="truncate font-semibold">{m.firstName ?? "Sans prénom"} {m.marketingSms && <span title="Accepte les SMS">📱</span>}</div>
+                  <div className="truncate font-semibold">{m.firstName ?? "Sans prénom"} {m.marketingSms && <span className="ml-1 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">SMS</span>}</div>
                   <div className="text-sm text-slate-500">{m.visits} passage{m.visits > 1 ? "s" : ""} · {relativeDay(m.lastVisitAt)}</div>
                 </div>
                 <div className="text-right">
@@ -138,19 +139,19 @@ export function ClientsTab({ onSend }: { onSend: (p: SendPreset) => void }) {
       {!segments ? <Skeleton lines={5} /> : segments.map((s) => (
         <Card key={s.key} onClick={() => setOpen(s)}>
           <div className="flex items-center gap-4">
-            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-slate-100 text-2xl">{s.icon}</span>
+            <Tile name={segmentIcon(s.key)} />
             <div className="min-w-0 flex-1">
               <div className="text-lg font-semibold">{s.label}</div>
               <div className="truncate text-sm text-slate-500">{s.description}</div>
             </div>
             <div className="text-right">
               <div className="text-2xl font-bold tabular-nums">{s.count}</div>
-              <div className="text-xs text-slate-400">📱 {s.reachable}</div>
+              <div className="text-xs text-slate-400">{s.reachable} par SMS</div>
             </div>
           </div>
         </Card>
       ))}
-      <p className="px-2 pt-2 text-center text-sm text-slate-400">📱 = clients qui acceptent de recevoir vos offres par SMS</p>
+      <p className="px-2 pt-2 text-center text-sm text-slate-400">« par SMS » : clients qui acceptent de recevoir vos offres</p>
     </Screen>
   );
 }

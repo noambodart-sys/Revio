@@ -78,13 +78,13 @@ export function ProgressRing({ value, size = 180, stroke = 14, children }: { val
   return (
     <div className="relative" style={{ width: size, height: size }}>
       <svg width={size} height={size} className="-rotate-90">
-        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgb(var(--brand) / 0.15)" strokeWidth={stroke} />
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="color-mix(in srgb, var(--k-accent, rgb(var(--brand))) 18%, transparent)" strokeWidth={stroke} />
         <circle
           cx={size / 2}
           cy={size / 2}
           r={r}
           fill="none"
-          stroke="rgb(var(--brand))"
+          stroke="var(--k-accent, rgb(var(--brand)))"
           strokeWidth={stroke}
           strokeLinecap="round"
           strokeDasharray={c}
