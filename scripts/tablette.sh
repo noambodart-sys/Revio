@@ -11,11 +11,16 @@
 # Les codes SMS ne sont PAS envoyés : ils s'affichent dans ce terminal.
 # Données de démo uniquement : ne pas inscrire de vrais clients sur ce serveur de test.
 # Ctrl+C pour tout arrêter.
+#
+# Option : bash scripts/tablette.sh --reset   → repart d'une base de démo neuve
+# (efface les clients de test ; un nouveau secret 2FA admin est généré).
 # =============================================================================
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
 PORT="${PORT:-3000}"
+RESET=0
+[[ "${1:-}" == "--reset" ]] && RESET=1
 LOGDIR=".tablette"
 mkdir -p "$LOGDIR"
 
@@ -44,7 +49,10 @@ fi
 if ! has cloudflared; then info "Installation de cloudflared (tunnel HTTPS)…"; brew install cloudflared; fi
 
 # --- 2. Projet et base -----------------------------------------------------------
-if [[ ! -d node_modules ]]; then info "Installation des dépendances (npm install)…"; npm install --no-audit --no-fund; fi
+if [[ ! -d node_modules || package-lock.json -nt node_modules/.package-lock.json ]]; then
+  info "Installation des dépendances (npm install)…"
+  npm install --no-audit --no-fund
+fi
 
 if [[ ! -f .env ]]; then
   info "Création du fichier .env avec des clés aléatoires…"
@@ -55,7 +63,12 @@ fi
 set -a; . ./.env; set +a
 
 info "Préparation de la base de démo…"
-bash scripts/db-setup.sh >/dev/null
+if [[ $RESET == 1 ]]; then
+  info "Remise à zéro de la base de démo…"
+  bash scripts/db-setup.sh --reset >/dev/null
+else
+  bash scripts/db-setup.sh >/dev/null
+fi
 npx prisma migrate deploy >/dev/null
 npx tsx prisma/seed.ts > "$LOGDIR/seed.log"
 PAIRING_CODE=$(grep -o "valable 30 min) : [A-Z0-9-]*" "$LOGDIR/seed.log" | awk '{print $NF}')
