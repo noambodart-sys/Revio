@@ -117,6 +117,9 @@ npx next build > "$LOGDIR/build.log" 2>&1 || { tail -30 "$LOGDIR/build.log"; fai
 export APP_URL="$URL" ALLOW_CONSOLE_SMS=true SMS_PROVIDER=console
 npx next start -p "$PORT" &
 PIDS+=($!)
+# Pilote automatique (messages automatiques) : toutes les 10 minutes pendant le test
+( while true; do sleep 600; npx tsx scripts/run-automations.ts 2>/dev/null; done ) &
+PIDS+=($!)
 for _ in $(seq 1 30); do curl -s -o /dev/null "http://localhost:$PORT/" && break; sleep 1; done
 
 # --- Résumé ---------------------------------------------------------------------------

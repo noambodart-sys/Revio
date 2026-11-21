@@ -13,7 +13,7 @@ export const GET = route(async (req) => {
     return {
       merchant: {
         name: m.name, plan: m.plan, primaryColor: m.primaryColor, logoUrl: m.logoUrl, kioskMessage: m.kioskMessage,
-        kioskTitle: m.kioskTitle, kioskTheme: m.kioskTheme, kioskBackground: m.kioskBackground,
+        kioskTitle: m.kioskTitle, kioskTheme: m.kioskTheme, kioskBackground: m.kioskBackground, googleReviewUrl: m.googleReviewUrl,
         businessType: m.businessType, subscriptionStatus: m.subscriptionStatus, trialEndsAt: m.trialEndsAt,
       },
       bonusPeriods: await listBonusPeriods(tx, ctx.merchantId),

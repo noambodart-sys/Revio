@@ -152,33 +152,39 @@ export async function sendCampaign(ctx: Ctx, input: CampaignInput, now = new Dat
     return { campaign, members, body, merchantName: merchant.name };
   });
 
+  const r = await deliverCampaign(ctx.merchantId, prepared.campaign.id, prepared.members.map((m) => ({ id: m.id, text: finalText(fillVariables(prepared.body, recipientVariables(m, prepared.merchantName))) })));
+  return { campaignId: prepared.campaign.id, ...r };
+}
+
+/**
+ * Envoie les SMS d'une campagne déjà enregistrée (destinataires créés en PENDING).
+ * Une transaction courte par SMS : un échec n'annule pas les envois précédents.
+ */
+export async function deliverCampaign(merchantId: string, campaignId: string, messages: { id: string; text: string }[]) {
   let sent = 0;
   let failed = 0;
-  for (const m of prepared.members) {
-    const text = finalText(fillVariables(prepared.body, recipientVariables(m, prepared.merchantName)));
-    await withTenant(ctx.merchantId, async (tx) => {
+  for (const m of messages) {
+    await withTenant(merchantId, async (tx) => {
       const phone = await revealPhone(tx, m.id);
       try {
         if (!phone) throw new Error("Numéro introuvable");
-        await sms().send(phone, text);
+        await sms().send(phone, m.text);
         sent++;
         await tx.campaignRecipient.update({
-          where: { campaignId_customerId: { campaignId: prepared.campaign.id, customerId: m.id } },
+          where: { campaignId_customerId: { campaignId, customerId: m.id } },
           data: { status: "SENT", sentAt: new Date() },
         });
       } catch (e) {
         failed++;
         await tx.campaignRecipient.update({
-          where: { campaignId_customerId: { campaignId: prepared.campaign.id, customerId: m.id } },
+          where: { campaignId_customerId: { campaignId, customerId: m.id } },
           data: { status: "FAILED", error: e instanceof Error ? e.message.slice(0, 200) : "Erreur" },
         });
       }
     });
   }
-  await withTenant(ctx.merchantId, (tx) =>
-    tx.campaign.update({ where: { id: prepared.campaign.id }, data: { status: "SENT", sentAt: new Date() } }),
-  );
-  return { campaignId: prepared.campaign.id, sent, failed };
+  await withTenant(merchantId, (tx) => tx.campaign.update({ where: { id: campaignId }, data: { status: "SENT", sentAt: new Date() } }));
+  return { sent, failed };
 }
 
 // ---------------------------------------------------------------------------
@@ -191,7 +197,7 @@ export async function sendCampaign(ctx: Ctx, input: CampaignInput, now = new Dat
  */
 export async function campaignResults(tx: Tx, merchantId: string, campaignId?: string) {
   const campaigns = await tx.campaign.findMany({
-    where: { merchantId, ...(campaignId ? { id: campaignId } : {}) },
+    where: { merchantId, automationKind: null, ...(campaignId ? { id: campaignId } : {}) },
     orderBy: { createdAt: "desc" },
     take: 30,
   });

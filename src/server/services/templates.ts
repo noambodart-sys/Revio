@@ -3,6 +3,7 @@ import type { Ctx } from "../context";
 import { badRequest } from "../errors";
 import { audit } from "../audit";
 import { templateByKey } from "@/config/templates";
+import { enableRecommendedAutomations } from "./automations";
 
 /**
  * Applique un modèle de métier : règles, niveaux, récompenses, roue, heures creuses, couleur,
@@ -47,6 +48,7 @@ export async function applyTemplate(tx: Tx, ctx: Ctx, key: string) {
     data: { businessType: t.key, kioskMessage: t.kioskMessage, primaryColor: m.primaryColor ?? t.color },
   });
 
+  await enableRecommendedAutomations(tx, ctx);
   await audit(tx, { merchantId, actor: ctx.actor, action: "merchant.apply_template", entityType: "merchant", entityId: merchantId, metadata: { template: key } });
   return { applied: t.key };
 }

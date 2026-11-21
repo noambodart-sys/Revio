@@ -22,7 +22,7 @@ let customerB: string;
 const TENANT_TABLES = [
   "users", "devices", "customers", "customer_identifiers", "phone_verifications", "consents", "rules",
   "tier_levels", "rewards", "redemptions", "wheel_prizes", "wheel_spins", "point_transactions",
-  "kiosk_sessions", "audit_log", "data_requests", "bonus_periods", "campaigns", "campaign_recipients",
+  "kiosk_sessions", "audit_log", "data_requests", "bonus_periods", "campaigns", "campaign_recipients", "automations",
 ];
 
 async function populate(m: M, phone: string) {
@@ -38,6 +38,7 @@ async function populate(m: M, phone: string) {
     await createDataRequest(tx, m.staffCtx, { customerId: c.id, type: "ACCESS" });
     const camp = await tx.campaign.create({ data: { merchantId: m.merchant.id, segmentKey: "all", message: "test", status: "SENT" } });
     await tx.campaignRecipient.create({ data: { merchantId: m.merchant.id, campaignId: camp.id, customerId: c.id, status: "SENT", sentAt: new Date() } });
+    await tx.automation.create({ data: { merchantId: m.merchant.id, kind: "WELCOME", message: "Bienvenue {prenom}" } });
     await tx.bonusPeriod.create({ data: { merchantId: m.merchant.id, dayOfWeek: 2, startMinute: 840, endMinute: 960, multiplierPercent: 200 } });
     await audit(tx, { merchantId: m.merchant.id, actor: m.staffCtx.actor, action: "test", entityType: "test" });
     return c.id;

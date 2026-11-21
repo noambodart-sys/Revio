@@ -19,7 +19,8 @@
     "db:test:setup": "bash scripts/db-setup.sh --reset revio_test && MIGRATION_DATABASE_URL=$(echo $MIGRATION_DATABASE_URL | sed 's#/revio$#/revio_test#') prisma migrate deploy",
     "tablette": "bash scripts/tablette.sh",
     "tablette:qr": "bash scripts/tablette-qr.sh",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "jobs:automations": "tsx scripts/run-automations.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

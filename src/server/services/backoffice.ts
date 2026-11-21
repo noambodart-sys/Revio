@@ -210,6 +210,7 @@ export const brandingSchema = z
     kioskTitle: z.string().trim().max(80).nullable(),
     kioskTheme: z.enum(["moderne", "chaleureux", "elegant", "pop"]),
     kioskBackground: z.string().max(900_000).nullable(),
+    googleReviewUrl: z.string().trim().max(300).url("Lien invalide").startsWith("https://", "Le lien doit commencer par https://").nullable().or(z.literal("").transform(() => null)),
   })
   .partial()
   .strict();
@@ -225,7 +226,7 @@ export async function updateBranding(tx: Tx, ctx: Ctx, input: z.infer<typeof bra
       kioskMessage: input.kioskMessage === undefined ? undefined : input.kioskMessage || null,
       kioskTitle: input.kioskTitle === undefined ? undefined : input.kioskTitle || null,
     },
-    select: { primaryColor: true, logoUrl: true, kioskMessage: true, kioskTitle: true, kioskTheme: true },
+    select: { primaryColor: true, logoUrl: true, kioskMessage: true, kioskTitle: true, kioskTheme: true, googleReviewUrl: true },
   });
   await audit(tx, {
     merchantId: ctx.merchantId,

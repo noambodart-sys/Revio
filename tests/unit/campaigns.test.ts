@@ -45,6 +45,7 @@ describe("groupes de clients", () => {
   const base: CustomerRow = {
     id: "x", firstName: "A", maskedPhone: null, enrolledAt: new Date("2026-01-01"), lastVisitAt: new Date("2026-11-10"),
     visits: 5, visits60: 3, balance: 80, earned90: 100, marketingSms: true, sms30: 0, nextReward: { name: "Café", pointsCost: 100, missing: 20 },
+    firstVisitAt: new Date("2026-01-05"), lastRedeemAt: null, affordableReward: null,
   };
   const ctx = { now, bestThreshold: 100 };
   it("habitués, absents, nouveaux, proches d'une récompense, anniversaire", () => {

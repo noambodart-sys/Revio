@@ -163,6 +163,7 @@ model Merchant {
   kioskTheme     String  @default("moderne") @map("kiosk_theme") // style de la tablette (moderne, chaleureux, elegant, pop)
   kioskTitle     String? @map("kiosk_title") // titre d'accueil personnalisé
   kioskBackground String? @map("kiosk_background") // photo de fond (image intégrée, redimensionnée)
+  googleReviewUrl String? @map("google_review_url") // lien « laisser un avis » de la fiche Google du commerce
   businessType   String? @map("business_type") // métier (modèles de démarrage)
 
   // Abonnement
@@ -191,6 +192,7 @@ model Merchant {
   wheelPrizes         WheelPrize[]
   bonusPeriods        BonusPeriod[]
   campaigns           Campaign[]
+  automations         Automation[]
   campaignRecipients  CampaignRecipient[]
   wheelSpins          WheelSpin[]
   pointTransactions   PointTransaction[]
@@ -645,6 +647,7 @@ model Campaign {
   merchant        Merchant       @relation(fields: [merchantId], references: [id], onDelete: Cascade)
   segmentKey      String         @map("segment_key") // groupe ciblé (services/segments.ts)
   templateKey     String?        @map("template_key")
+  automationKind  String?        @map("automation_kind") // envoi du pilote automatique (sinon campagne manuelle)
   message         String // texte avec variables par destinataire ({prenom}, {points}…)
   offerTitle      String?        @map("offer_title") // offre affichée au comptoir (tablette + caisse)
   offerValidUntil DateTime?      @map("offer_valid_until")
@@ -658,6 +661,21 @@ model Campaign {
 
   @@index([merchantId, createdAt])
   @@map("campaigns")
+}
+
+/// Message automatique (pilote automatique) : un par type et par commerce.
+model Automation {
+  id         String   @id @default(uuid()) @db.Uuid
+  merchantId String   @map("merchant_id") @db.Uuid
+  merchant   Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  kind       String // WELCOME, REWARD_READY, WIN_BACK, LOYALTY_ANNIVERSARY, POINTS_EXPIRING, REVIEW_REQUEST
+  enabled    Boolean  @default(false)
+  message    String // texte avec variables ({prenom}, {commerce}, {points}…)
+  params     Json     @default("{}") // réglages propres au type (jours, nombre de visites, offre…)
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@unique([merchantId, kind])
+  @@map("automations")
 }
 
 model CampaignRecipient {

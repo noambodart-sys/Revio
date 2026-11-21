@@ -5,7 +5,8 @@
  */
 import "dotenv/config";
 import { createHash } from "node:crypto";
-import { systemDb, disconnectAll } from "../src/server/db";
+import { systemDb, disconnectAll, withTenant } from "../src/server/db";
+import { enableRecommendedAutomations } from "../src/server/services/automations";
 import { LEGAL_TEMPLATES, LEGAL_TEMPLATES_VERSION } from "../src/server/legal-templates";
 import { createMerchant } from "../src/server/services/merchants";
 import { createUser } from "../src/server/services/auth";
@@ -75,6 +76,7 @@ async function main() {
         { label: "Croissant", type: "REWARD" as const, rewardId: rewards[0].id, weight: 5 },
       ].map((p, i) => ({ ...p, sortOrder: i, merchantId: merchant!.id })),
     });
+    await withTenant(merchant.id, (tx) => enableRecommendedAutomations(tx, { merchantId: merchant!.id, actor: SYSTEM }));
     console.log(`\nCommerce de démo : ${merchant.name}`);
     console.log("  Propriétaire : proprio@demo.local / demo-proprio-2026");
     console.log("  Vendeur      : vendeur@demo.local / demo-vendeur-2026");

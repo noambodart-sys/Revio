@@ -27,7 +27,11 @@ export interface CustomerRow {
   earned90: number;
   marketingSms: boolean;
   sms30: number;
+  firstVisitAt: Date | null;
+  lastRedeemAt: Date | null;
   nextReward: { name: string; pointsCost: number; missing: number } | null;
+  /** Récompense la moins chère déjà atteignable (si le solde le permet). */
+  affordableReward: { name: string; pointsCost: number } | null;
 }
 
 const DAY = 24 * 3600_000;
@@ -39,11 +43,13 @@ export async function loadCustomerRows(tx: Tx, merchantId: string, now = new Dat
   const iso30 = new Date(now.getTime() - 30 * DAY).toISOString();
   const positive = [...POSITIVE_EARN_TYPES];
   const rows = await tx.$queryRaw<
-    { id: string; first_name: string | null; enrolled_at: Date; last_visit_at: Date | null; masked: string | null; visits: bigint; visits60: bigint; balance: bigint; earned90: bigint; sms_ok: boolean | null; sms30: bigint }[]
+    { id: string; first_name: string | null; enrolled_at: Date; last_visit_at: Date | null; masked: string | null; visits: bigint; visits60: bigint; balance: bigint; earned90: bigint; sms_ok: boolean | null; sms30: bigint; first_visit: Date | null; last_redeem: Date | null }[]
   >`
     SELECT c.id, c.first_name, c.enrolled_at, c.last_visit_at,
       (SELECT ci.display_hint FROM customer_identifiers ci WHERE ci.customer_id = c.id AND ci.type = 'PHONE' AND ci.revoked_at IS NULL LIMIT 1) AS masked,
       COUNT(pt.id) FILTER (WHERE pt.type = 'EARN') AS visits,
+      MIN(pt.occurred_at) FILTER (WHERE pt.type = 'EARN') AS first_visit,
+      MAX(pt.occurred_at) FILTER (WHERE pt.type = 'REDEEM') AS last_redeem,
       COUNT(pt.id) FILTER (WHERE pt.type = 'EARN' AND pt.occurred_at >= (${iso60}::timestamptz AT TIME ZONE 'UTC')) AS visits60,
       COALESCE(SUM(pt.points), 0) AS balance,
       COALESCE(SUM(pt.points) FILTER (WHERE pt.type::text = ANY(${positive}) AND pt.occurred_at >= (${iso90}::timestamptz AT TIME ZONE 'UTC')), 0) AS earned90,
@@ -57,6 +63,7 @@ export async function loadCustomerRows(tx: Tx, merchantId: string, now = new Dat
   return rows.map((r) => {
     const balance = Number(r.balance);
     const next = rewards.find((w) => w.pointsCost > balance && (w.stock === null || w.stock > 0));
+    const affordable = rewards.find((w) => w.pointsCost <= balance && (w.stock === null || w.stock > 0));
     return {
       id: r.id,
       firstName: r.first_name,
@@ -69,6 +76,9 @@ export async function loadCustomerRows(tx: Tx, merchantId: string, now = new Dat
       earned90: Number(r.earned90),
       marketingSms: !!r.sms_ok,
       sms30: Number(r.sms30),
+      firstVisitAt: r.first_visit,
+      lastRedeemAt: r.last_redeem,
+      affordableReward: affordable ? { name: affordable.name, pointsCost: affordable.pointsCost } : null,
       nextReward: next ? { name: next.name, pointsCost: next.pointsCost, missing: next.pointsCost - balance } : null,
     };
   });
