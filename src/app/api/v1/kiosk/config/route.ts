@@ -4,6 +4,7 @@ import { getRules } from "@/server/services/rules";
 import { currentLegalDocument, renderLegalText } from "@/server/services/consents";
 import { PRODUCT_NAME } from "@/config/product";
 import { happyHourStatus } from "@/server/services/engagement";
+import QRCode from "qrcode";
 
 /** Configuration de la tablette : identité visuelle, réglages d'affichage, textes juridiques à jour. */
 export const GET = route(async (req) => {
@@ -32,6 +33,17 @@ export const GET = route(async (req) => {
         name: m.name, logoUrl: m.logoUrl, primaryColor: m.primaryColor, secondaryColor: m.secondaryColor, kioskMessage: m.kioskMessage,
         kioskTitle: m.kioskTitle, kioskTheme: m.kioskTheme, kioskBackground: m.kioskBackground,
       },
+      // Carte à tampons : quand le commerce compte par passage et que la 1re récompense tombe juste
+      stamps: await (async () => {
+        if (rules.earnMode !== "PER_VISIT" || rules.pointsPerVisit <= 0) return null;
+        const first = await tx.reward.findFirst({ where: { active: true }, orderBy: { pointsCost: "asc" } });
+        if (!first || first.pointsCost % rules.pointsPerVisit !== 0) return null;
+        const total = first.pointsCost / rules.pointsPerVisit;
+        return total >= 3 && total <= 20 ? { perStamp: rules.pointsPerVisit, total, rewardName: first.name } : null;
+      })(),
+      review: m.googleReviewUrl
+        ? { qrSvg: await QRCode.toString(m.googleReviewUrl, { type: "svg", margin: 0, errorCorrectionLevel: "M" }) }
+        : null,
       rewards: (await tx.reward.findMany({ where: { active: true }, orderBy: [{ sortOrder: "asc" }, { pointsCost: "asc" }], take: 6 })).map((r) => ({ name: r.name, pointsCost: r.pointsCost })),
       happyHour: await happyHourStatus(tx, ctx.merchantId),
       loyalty: {

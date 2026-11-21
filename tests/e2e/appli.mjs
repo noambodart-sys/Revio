@@ -33,6 +33,17 @@ try {
   await shot(phone, "a1-aujourdhui");
   step("connexion sur téléphone → appli, écran Aujourd'hui avec suggestions");
 
+  // Pilote automatique : messages actifs (démo), réglage de la relance avec un cadeau
+  await phone.getByRole("button", { name: /Pilote automatique/ }).click();
+  await phone.getByText("Les bons messages, au bon moment, sans y penser").waitFor();
+  await shot(phone, "a1b-pilote");
+  await phone.getByRole("button", { name: /Relance des absents/ }).first().click();
+  await phone.getByLabel("Petit cadeau au retour (facultatif)").fill("un croissant offert");
+  await phone.getByRole("button", { name: "Enregistrer" }).click();
+  await phone.getByText("Les bons messages, au bon moment, sans y penser").waitFor();
+  await phone.getByRole("button", { name: "Retour" }).click();
+  step("pilote automatique : liste des 6 messages, relance réglée avec un cadeau");
+
   await phone.getByRole("button", { name: "Clients", exact: true }).click();
   await phone.getByText("Mes habitués").waitFor();
   await shot(phone, "a2-clients");

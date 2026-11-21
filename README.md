@@ -48,6 +48,11 @@ Terminal : `npm run tablette:qr`. `Ctrl+C` arrête tout. L'adresse change à cha
 
 ⚠️ Serveur de test : données de démo uniquement, pas de vrais clients.
 
+## Tâches planifiées (serveur)
+
+- `npm run jobs:run` : chaque nuit (expiration des points, conservation des données).
+- `npm run jobs:automations` : chaque heure (pilote automatique ; rien n'est envoyé hors 9 h – 20 h ni le dimanche).
+
 ## Tests
 
 ```bash

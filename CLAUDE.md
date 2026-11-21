@@ -57,6 +57,7 @@ npm test                  # tests unitaires + intégration (base réelle)
 npm run typecheck
 npm run dev               # http://localhost:3000
 npm run jobs:run          # jobs quotidiens (expiration, conservation)
+npm run jobs:automations  # pilote automatique (toutes les heures ; rien hors 9 h – 20 h)
 npm run tablette          # Mac : serveur de test + tunnel HTTPS + QR code pour une vraie tablette
 npm run tablette:qr       # réaffiche le QR code + nouveau code d'appairage (serveur lancé)
 ```
@@ -66,6 +67,8 @@ Tests navigateur : `tests/e2e/parcours.mjs` puis `tests/e2e/gestion.mjs` (voir l
 Tests navigateur de l'appli : `tests/e2e/appli.mjs` (après `parcours.mjs`), puis `tests/e2e/comptoir.mjs`
 (après `gestion.mjs`, avec `E2E_PAIRING_CODE`).
 
+Pilote automatique : `services/automations.ts` (règles d'éligibilité pures + envoi groupé via `deliverCampaign`),
+textes par défaut dans `src/config/automation-templates.ts`. Concurrence : `docs/concurrence.md`.
 Mode comptoir : `services/counter.ts` (code vendeur → autorisation signée de 3 min, liée au passage).
 Équipe : `services/team.ts` (le propriétaire écrit dans `users` sous RLS ; sessions via `systemDb`).
 Styles de la tablette : variables CSS `.kiosk[data-theme]` dans `globals.css`.

@@ -6,6 +6,7 @@ import { LegalText, Modal } from "@/components/Modal";
 import { Wheel } from "@/components/Wheel";
 import { Confetti, CountUp, ProgressRing } from "@/components/Celebrate";
 import { KBadge, KIcon, type KioskIconName } from "@/components/KioskIcon";
+import { ReviewQr, StampCard } from "@/components/StampCard";
 
 // ---------------------------------------------------------------------------
 // Types renvoyés par l'API
@@ -22,6 +23,8 @@ interface KioskConfig {
   };
   rules: { identificationMode: "PIN" | "STAFF_VALIDATION"; kioskResetSeconds: number; wheelEnabled: boolean; earnMode: "PER_EURO" | "PER_VISIT"; pointsPerEuro: number; pointsPerVisit: number };
   rewards: { name: string; pointsCost: number }[];
+  stamps: { perStamp: number; total: number; rewardName: string } | null;
+  review: { qrSvg: string } | null;
   happyHour: HappyHour;
   loyalty: { visitMilestone: { every: number; points: number } | null; streak: { weeks: number; points: number } | null; anniversaryPoints: number | null };
   legal: Record<"TERMS" | "PRIVACY_POLICY" | "MARKETING_SMS" | "MARKETING_EMAIL", { version: string; content: string }>;
@@ -664,15 +667,21 @@ export default function KioskPage() {
           ? [{ icon: "gift" as KioskIconName, text: `Aujourd'hui : +${e.streakGoal.points} points de régularité` }]
           : []),
         ...(e.nextMilestone ? [{ icon: "sparkle" as KioskIconName, text: e.nextMilestone.inVisits === 1 ? `Votre prochaine visite : +${e.nextMilestone.points} points` : `Encore ${e.nextMilestone.inVisits} visites avant +${e.nextMilestone.points} points` }] : []),
-        ...(e.visits > 0 ? [{ icon: "steps" as KioskIconName, text: `${e.visits} visite${e.visits > 1 ? "s" : ""}` }] : []),
+        ...(e.visits > 0 ? [{ icon: "check" as KioskIconName, text: `${e.visits} visite${e.visits > 1 ? "s" : ""}` }] : []),
       ];
       return shell(
         <div className="grid w-full items-center gap-10 landscape:md:grid-cols-[auto_1fr]">
           <div className="animate-fade-in flex flex-col items-center gap-4">
-            <ProgressRing value={target ? c.balance / target : 1} size={280} stroke={20}>
-              <CountUp to={c.balance} className="text-7xl font-black tabular-nums" />
-              <span className="text-xl k-muted">points</span>
-            </ProgressRing>
+            {config?.stamps ? (
+              <div className="w-full max-w-md">
+                <StampCard filled={Math.floor(c.balance / config.stamps.perStamp)} total={config.stamps.total} rewardName={config.stamps.rewardName} />
+              </div>
+            ) : (
+              <ProgressRing value={target ? c.balance / target : 1} size={280} stroke={20}>
+                <CountUp to={c.balance} className="text-7xl font-black tabular-nums" />
+                <span className="text-xl k-muted">points</span>
+              </ProgressRing>
+            )}
             {c.tier && <span className="rounded-full bg-slate-900 px-5 py-2 text-lg font-semibold text-white">Niveau {c.tier.name}{c.tier.bonusPercent ? ` · +${c.tier.bonusPercent} %` : ""}</span>}
           </div>
           <div className="animate-fade-in space-y-5 text-center landscape:md:text-left">
@@ -685,7 +694,7 @@ export default function KioskPage() {
                 Vous pouvez obtenir : <strong>{c.availableRewards.map((r) => r.name).join(", ")}</strong>. Demandez au vendeur !
               </div>
             ) : null}
-            {c.nextReward && (
+            {c.nextReward && !config?.stamps && (
               <p className="text-2xl">Encore <strong className="text-brand">{c.nextReward.missing} points</strong> pour : {c.nextReward.name}</p>
             )}
             {chips.length > 0 && (
@@ -810,9 +819,19 @@ export default function KioskPage() {
               ))}
             </ul>
           )}
-          <div className="w-full rounded-2xl k-card px-6 py-5 text-2xl shadow-sm">
-            Nouveau solde : <strong><CountUp from={balanceBefore ?? 0} to={c?.balance ?? 0} duration={1500} /> points</strong>
-          </div>
+          {config?.stamps && c ? (
+            <StampCard
+              filled={Math.floor(c.balance / config.stamps.perStamp)}
+              total={config.stamps.total}
+              rewardName={config.stamps.rewardName}
+              fresh={Math.max(0, Math.floor(c.balance / config.stamps.perStamp) - Math.floor((balanceBefore ?? c.balance) / config.stamps.perStamp))}
+            />
+          ) : (
+            <div className="w-full rounded-2xl k-card px-6 py-5 text-2xl shadow-sm">
+              Nouveau solde : <strong><CountUp from={balanceBefore ?? 0} to={c?.balance ?? 0} duration={1500} /> points</strong>
+            </div>
+          )}
+          {config?.review && c && c.engagement.visits >= 3 && <ReviewQr svg={config.review.qrSvg} merchantName={merchantName} />}
           {view?.wheel?.available ? (
             <button className="btn-brand animate-pop px-10 py-6 text-2xl" onClick={spin} disabled={busy}>Tourner la roue</button>
           ) : (

@@ -34,7 +34,7 @@ export interface Reward { id: string; name: string; description: string | null; 
 export interface Settings {
   merchant: {
     name: string; plan: "ESSENTIEL" | "PRO"; primaryColor: string | null; logoUrl: string | null; kioskMessage: string | null;
-    kioskTitle: string | null; kioskTheme: string; kioskBackground: string | null;
+    kioskTitle: string | null; kioskTheme: string; kioskBackground: string | null; googleReviewUrl: string | null;
     businessType: string | null; subscriptionStatus: string; trialEndsAt: string | null;
   };
   bonusPeriods: BonusPeriod[];

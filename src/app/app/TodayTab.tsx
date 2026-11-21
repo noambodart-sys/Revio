@@ -11,10 +11,11 @@ interface Today {
   firstName: string;
   stats: { visits: number; visitsLastWeek: number; revenueCents: number; points: number; newCustomers: number };
   happyHour: { active: { multiplierPercent: number; endMinute: number } | null };
+  autopilot: { active: number; visitors: number };
   suggestions: { key: string; icon: string; title: string; text: string; templateKey: string; segmentKey: string; recipients: number }[];
 }
 
-export function TodayTab({ onSend }: { onSend: (p: SendPreset) => void }) {
+export function TodayTab({ onSend, onAutopilot }: { onSend: (p: SendPreset) => void; onAutopilot: () => void }) {
   const [d, setD] = useState<Today | null>(null);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
@@ -59,6 +60,20 @@ export function TodayTab({ onSend }: { onSend: (p: SendPreset) => void }) {
               <div className="text-slate-800">Les points sont multipliés jusqu&apos;à {Math.floor(d.happyHour.active.endMinute / 60)} h.</div>
             </Card>
           )}
+
+          <Card onClick={onAutopilot}>
+            <div className="flex items-center gap-4">
+              <Tile name="bolt" />
+              <div className="flex-1">
+                <div className="text-lg font-semibold">Pilote automatique</div>
+                <div className="text-sm text-slate-500">
+                  {d.autopilot.active} message{d.autopilot.active > 1 ? "s" : ""} automatique{d.autopilot.active > 1 ? "s" : ""} actif{d.autopilot.active > 1 ? "s" : ""}
+                  {d.autopilot.visitors > 0 ? ` · ${d.autopilot.visitors} client${d.autopilot.visitors > 1 ? "s" : ""} revenu${d.autopilot.visitors > 1 ? "s" : ""} ce mois` : ""}
+                </div>
+              </div>
+              <Icon.chevron className="h-5 w-5 text-slate-400" />
+            </div>
+          </Card>
 
           <h2 className="px-1 pt-3 text-lg font-bold">Nos idées pour vous</h2>
           {d.suggestions.map((sg) => (

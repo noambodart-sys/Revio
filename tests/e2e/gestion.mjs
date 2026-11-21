@@ -56,6 +56,17 @@ try {
   await page.getByText("Baguette offerte").waitFor();
   step("récompenses : ajout d'une récompense");
 
+  // Messages automatiques : lien d'avis Google puis activation de la demande d'avis
+  await page.getByRole("button", { name: "Messages automatiques" }).click();
+  await page.getByLabel("Lien de votre fiche Google (« Demander des avis »)").fill("https://g.page/r/demo-boulangerie/review");
+  await page.getByRole("button", { name: "Enregistrer le lien" }).click();
+  await page.getByText("Lien d'avis Google enregistré").waitFor();
+  const review = page.locator(".card", { has: page.getByRole("heading", { name: /Demande d'avis Google/ }) });
+  await review.getByRole("button", { name: "Activer" }).click();
+  await page.getByText("Demande d'avis Google : activé et enregistré").waitFor();
+  await shot(page, "g2b-automatiques");
+  step("messages automatiques : lien Google enregistré, demande d'avis activée");
+
   // Règles : bonus de fidélité, heures creuses, 2 points par euro
   await page.getByRole("button", { name: "Règles des points" }).click();
   await page.getByText("Bonus de fidélité", { exact: true }).waitFor();

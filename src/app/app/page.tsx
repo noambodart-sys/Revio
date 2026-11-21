@@ -7,6 +7,7 @@ import { TodayTab } from "./TodayTab";
 import { ClientsTab } from "./ClientsTab";
 import { ResultsTab } from "./ResultsTab";
 import { SendFlow, type SendPreset } from "./SendFlow";
+import { Autopilot } from "./Autopilot";
 
 type Tab = "today" | "clients" | "results";
 
@@ -15,6 +16,7 @@ export default function MerchantApp() {
   const { me, wrongAccount } = useSession(["OWNER"], "/app");
   const [tab, setTab] = useState<Tab>("today");
   const [sending, setSending] = useState<SendPreset | null>(null);
+  const [autopilot, setAutopilot] = useState(false);
 
   useEffect(() => {
     const t = new URLSearchParams(window.location.search).get("onglet");
@@ -23,6 +25,8 @@ export default function MerchantApp() {
 
   if (wrongAccount) return <WrongAccount user={wrongAccount} pageName="L'appli du commerçant" needed="au propriétaire du commerce" next="/app" />;
   if (!me) return <div className="flex min-h-screen items-center justify-center text-slate-400">Chargement…</div>;
+
+  if (autopilot) return <Autopilot onClose={() => setAutopilot(false)} />;
 
   if (sending) {
     return (
@@ -45,7 +49,7 @@ export default function MerchantApp() {
 
   return (
     <>
-      {tab === "today" && <TodayTab onSend={setSending} />}
+      {tab === "today" && <TodayTab onSend={setSending} onAutopilot={() => setAutopilot(true)} />}
       {tab === "clients" && <ClientsTab onSend={setSending} />}
       {tab === "results" && <ResultsTab onSend={() => setSending({})} />}
 

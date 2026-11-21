@@ -14,12 +14,14 @@ import { WheelTiersTab } from "./WheelTiersTab";
 import { BrandingTab } from "./BrandingTab";
 import { RequestsTab } from "./RequestsTab";
 import { TeamTab } from "./TeamTab";
+import { AutomationsTab } from "./AutomationsTab";
 import { TemplatePicker } from "./TemplatePicker";
 
 const TABS = [
   { id: "dashboard", label: "Tableau de bord" },
   { id: "customers", label: "Clients" },
   { id: "rewards", label: "Récompenses" },
+  { id: "automations", label: "Messages automatiques" },
   { id: "rules", label: "Règles des points" },
   { id: "wheel", label: "Roue et niveaux" },
   { id: "branding", label: "Apparence" },
@@ -105,6 +107,7 @@ export default function GestionPage() {
         {tab === "branding" && <BrandingTab settings={settings} flash={flash} onSaved={reload} />}
         {tab === "requests" && <RequestsTab flash={flash} />}
         {tab === "team" && <TeamTab flash={flash} meId={me.id} />}
+        {tab === "automations" && <AutomationsTab flash={flash} googleReviewUrl={settings.merchant.googleReviewUrl} onSaved={reload} />}
       </div>
     </main>
   );

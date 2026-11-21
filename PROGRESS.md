@@ -82,6 +82,20 @@ Voir `docs/audit-commercialisation.md` (bloquants restants, décisions, risques)
 - [x] Préférences du client sur la tablette (offres SMS) ; reprise d'une ancienne carte en caisse
 - [x] 127 tests + 4 parcours navigateur (dont `tests/e2e/comptoir.mjs`)
 
+### Concurrence : rattraper et dépasser (21/11/2026)
+
+Analyse : `docs/concurrence.md` (Fidely-Box, Joyn, Zerosix, Fiddo, Square, Stamp Me, Fivestars).
+
+- [x] Pilote automatique : bienvenue, récompense disponible, relance des absents (cadeau au
+      comptoir possible), anniversaire de fidélité, points bientôt expirés, demande d'avis Google
+      (sans contrepartie). Résultats sur 30 jours par message. `npm run jobs:automations` (horaire)
+- [x] Carte à tampons sur la tablette quand le commerce compte par passage
+- [x] QR code « Laissez-nous un avis » après l'achat (habitués, 3 visites et plus)
+- [x] Next.js 15.1.6 → 15.5.29 (faille critique corrigée)
+- [x] 140 tests + 4 parcours navigateur
+- [ ] Zod 3 → 4 (alerte « mémoire » : nos listes sont déjà bornées)
+- [ ] Néerlandais sur la tablette, Wallet Apple/Google, intégration caisse (SumUp, Lightspeed)
+
 ### Idées en attente (à valider avec des commerçants)
 
 - [ ] Cagnotte solidaire pour une association du quartier (affichée sur la tablette)

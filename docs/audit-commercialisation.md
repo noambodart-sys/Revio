@@ -20,7 +20,7 @@ Mis à jour le 21/11/2026. Point de vue : un commerçant réel, un lundi matin, 
 | # | Sujet | Pourquoi ça bloque | Qui | Effort |
 |---|---|---|---|---|
 | 1 | **Hébergement UE + nom de domaine + HTTPS** | Aujourd'hui le serveur tourne sur un Mac | Vous (compte, domaine) + moi (installation) | 1 à 2 j |
-| 2 | **Sauvegardes chiffrées + test de restauration + alerte si le site tombe** | Perdre les points des clients d'un commerçant = fin de la relation | Moi | 0,5 j |
+| 2 | **Sauvegardes chiffrées + test de restauration + alerte si le site tombe + tâches planifiées** (`jobs:run` chaque nuit, `jobs:automations` chaque heure) | Perdre les points des clients d'un commerçant = fin de la relation | Moi | 0,5 j |
 | 3 | **SMS réels (Brevo)** : codes d'inscription, campagnes, nom d'expéditeur, réponses STOP reçues automatiquement | Sans SMS, pas d'inscription | Vous (compte) + moi | 1 j |
 | 4 | **Mot de passe oublié par e-mail** | Sinon chaque oubli = un appel pour vous | Moi (via Brevo e-mail) | 0,5 j |
 | 5 | **Abonnement Stripe** : essai d'un mois, prélèvement SEPA, factures, suspension si impayé | Encaisser | Vous (compte, société) + moi | 2 j |
@@ -46,6 +46,13 @@ Mis à jour le 21/11/2026. Point de vue : un commerçant réel, un lundi matin, 
 - **Tablette** : vente, location (~10 €/mois) ou le commerçant utilise la sienne ? La location simplifie le support (même modèle partout).
 - **Positionnement face à Fidelity Box, Joyn et Piggy** : la simplicité (appli « à la Revolut »), les SMS dont le résultat est mesuré, le mode comptoir sans ordinateur, l'ancrage local (cagnotte de quartier à venir).
 - **Pilote** : 2 à 3 commerces gratuits pendant 1 à 2 mois. Mesurer le taux d'inscription, le nombre de passages par client et le nombre d'offres envoyées. Récolter des citations pour la vente.
+
+## 4 bis. Sécurité des dépendances (21/11/2026)
+
+- Next.js passé de 15.1.6 à 15.5.29 : faille critique corrigée.
+- Restent : PostCSS (interne à Next, ne traite que nos propres fichiers : risque faible) et Zod 3
+  (épuisement mémoire sur des listes géantes : toutes nos listes ont une taille maximale). Passage à Zod 4 à planifier.
+- À l'hébergement : mises à jour de sécurité automatiques des dépendances (Dependabot) et `npm audit` dans l'intégration continue.
 
 ## 5. Risques et parades
 
