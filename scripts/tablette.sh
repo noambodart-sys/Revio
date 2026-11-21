@@ -62,6 +62,10 @@ if [[ ! -f .env ]]; then
 fi
 set -a; . ./.env; set +a
 
+# Régénère le client Prisma : indispensable après une mise à jour du schéma (git pull)
+info "Mise à jour du code d'accès à la base…"
+npx prisma generate >/dev/null
+
 info "Préparation de la base de démo…"
 if [[ $RESET == 1 ]]; then
   info "Remise à zéro de la base de démo…"
